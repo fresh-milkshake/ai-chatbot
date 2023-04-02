@@ -1,0 +1,36 @@
+# For python
+__pycache__
+*.py[cod]
+*$py.class
+.venv
+venv
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+
+# Project specific
+.vscode
+
+# Sensetive data
+.env
+data
+*.txt
+
+# Logs
+logs
+*.log
+Thumbs.db
+
+# Tests
+*_test.py
+test_*.py
+test.py
+/tests
+
+# Specific
+/installation
