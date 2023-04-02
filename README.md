@@ -4,6 +4,8 @@
 
 [![GitHub license](https://img.shields.io/github/license/immacool/ai-chatbot)](https://github.com/immacool/ai-chatbot/blob/master/LICENSE)
 
+![Python version](https://img.shields.io/badge/python-v3.10%20%7C%20v3.11-blue)
+
 This is a simple chatbot that uses the OpenAI API to generate responses to user input. It is a work in progress, and I will be adding more features (i guess) as I go along.
 
 ## Installation
