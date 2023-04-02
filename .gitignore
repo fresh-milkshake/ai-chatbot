@@ -19,7 +19,7 @@ ehthumbs.db
 # Sensetive data
 .env
 data
-*.txt
+
 
 # Logs
 logs
