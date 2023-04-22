@@ -11,7 +11,7 @@ from app.model import LanguageModel
 from app.redis import RedisCache
 from config import *
 from loguru import logger
-from reports import generate_report
+from app.reports import generate_report
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import (CallbackQueryHandler, CommandHandler, ContextTypes,
                           MessageHandler, filters)

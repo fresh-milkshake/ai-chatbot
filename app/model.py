@@ -38,8 +38,10 @@ class LanguageModel:
         messages = [*previous_conversation, new_message]
 
         try:
+            # logger.debug(f'Calling OpenAI API for message: "{message}"')
             response = openai.ChatCompletion.create(model=MODEL_NAME,
                                                     messages=messages)
+            # logger.debug(f'OpenAI API response: {response}')
             choice = response.get('choices')[0]
             answer = choice.get('message').get('content')
             answer = answer.strip()
