@@ -15,6 +15,7 @@ ehthumbs.db
 
 # Project specific
 .vscode
+.idea
 
 # Sensetive data
 .env

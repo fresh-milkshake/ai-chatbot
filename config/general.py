@@ -12,6 +12,7 @@ USERS_DATA_FILE_NAME = 'users.json'
 USERS_DATA_PATH = os.path.join(DATA_DIR, USERS_DATA_FILE_NAME)
 REPORTS_PATH = os.path.join(DATA_DIR, 'reports')
 
+
 # Model parameters
 @dataclass
 class Models:

@@ -12,4 +12,4 @@ TELEGRAM_TOKEN = os.environ.get('TELEGRAM_TOKEN')
 PRODUCTION = bool(os.environ.get('PRODUCTION', 1))
 
 # Redis
-REIDS_PASSWORD = os.environ.get('REIDS_PASSWORD', None)
+REDIS_PASSWORD = os.environ.get('REIDS_PASSWORD', None)

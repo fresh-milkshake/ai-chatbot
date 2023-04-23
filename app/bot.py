@@ -1,21 +1,37 @@
-# try:
-#     import orjson as json
-# except ImportError:
-#     import json
-
 import inspect
 from functools import wraps
-from typing import Callable, List, Optional
+from typing import Callable, List, Any
+
+from loguru import logger
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import (CallbackQueryHandler, CommandHandler, ContextTypes,
+                          MessageHandler, filters)
 
 from app.model import LanguageModel
 from app.redis import RedisCache
-from config import *
-from loguru import logger
 from app.reports import generate_report
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
-from telegram.ext import (CallbackQueryHandler, CommandHandler, ContextTypes,
-                          MessageHandler, filters)
+from config import *
 from utils.strings import *
+
+
+def independent_call(func, *args, **kwargs) -> Any:
+    """
+    Wrapper around logic of running function async-/synchronously depending
+    on target function type - telegram handler or business logic.
+
+    Args:
+        func: Target function to call in async or sync mode depending on its type.
+        *args: *args that will be provided to target function.
+        **kwargs: **kwargs that will be provided to target function.
+
+    Returns:
+        Result of target function.
+    """
+
+    if inspect.iscoroutinefunction(func):
+        return await func(*args, **kwargs)
+    else:
+        return func(*args, **kwargs)
 
 
 def auth_required(min_level=AccessLevel.GUEST, verbose=True, **kwargs: dict):
@@ -23,6 +39,8 @@ def auth_required(min_level=AccessLevel.GUEST, verbose=True, **kwargs: dict):
     Decorator for checking if a user is authorized to use a command.
 
     Args:
+        min_level: Minimum access level for calling specified function.
+        verbose: Whether to send information about fact that user needs higher access level.
         kwargs: Keyword arguments to pass to the decorator.
 
     Returns:
@@ -30,7 +48,6 @@ def auth_required(min_level=AccessLevel.GUEST, verbose=True, **kwargs: dict):
     """
 
     def decorator(func: Callable):
-
         @wraps(func)
         async def wrapper(update, context):
             user = RedisCache().get_user_by_update(update)
@@ -41,10 +58,49 @@ def auth_required(min_level=AccessLevel.GUEST, verbose=True, **kwargs: dict):
                         MSG_NEED_HIGHER_ACCESS_LEVEL)
                 return
 
-            if inspect.iscoroutinefunction(func):
-                return await func(update, context)
-            else:
-                return func(update, context)
+            independent_call(func, update, context)
+
+        return wrapper
+
+    return decorator
+
+
+def args_required(min_arguments=None, exact_arguments=None, error_message=None, is_callback=False):
+    """
+    Decorator for ensuring if function arguments will match defined conditions or not.
+
+    Args:
+        min_arguments: Minimum required arguments count.
+        exact_arguments: Exact arguments count, will override min_arguments if set to anything else than 0.
+        error_message: Error message that will be shown when arguments count comparison encounters a failure.
+        is_callback: Flag that indicated whether function is callback handler or handler of other type.
+
+    Returns:
+        A decorator function.
+    """
+
+    def decorator(func):
+        @wraps(func)
+        async def wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE):
+            if is_callback:
+                return
+
+            query = update.callback_query
+            await query.answer()
+
+            args = query.data.split(CALLBACK_ARGUMENTS_DIVIDER)
+            args_count = len(args)
+            args_to_provide = (func, update, context, args, query)
+
+            if exact_arguments and args_count == exact_arguments:
+                independent_call(args_to_provide)
+                return
+
+            if min_arguments and args_count >= min_arguments:
+                independent_call(args_to_provide)
+                return
+
+            await query.edit_message_text(error_message or MSG_ERROR_INCORRECT_ARGUMENTS)
 
         return wrapper
 
@@ -52,7 +108,7 @@ def auth_required(min_level=AccessLevel.GUEST, verbose=True, **kwargs: dict):
 
 
 @auth_required()
-async def start(update: Update, context: ContextTypes):
+async def start(update: Update):
     """
     Handle the /start command.
     """
@@ -62,7 +118,7 @@ async def start(update: Update, context: ContextTypes):
     await update.message.reply_text(MSG_START)
 
 
-async def unknown_command(update: Update, context: ContextTypes):
+async def unknown_command(update: Update):
     """
     Handle unknown commands.
     """
@@ -81,30 +137,20 @@ async def error_handler(update: Update, context: ContextTypes):
 
 
 @auth_required(min_level=AccessLevel.ADMIN)
-async def dump(update: Update, context: ContextTypes):
+async def dump(update: Update):
     """
     Dumps all user conversations to disk.
     """
 
     logger.debug(f'User {get_user_string(update)} used /dump command')
 
-    users = RedisCache().get_users()
-    for user_id in users:
-        user = users.get(user_id)
+    # RedisCache().get_users()
 
-    edited_files, bytes_written = generate_report(user)
-
-    logger.info(
-        f'Wrote {bytes_written} bytes to disk, edited {len(edited_files)} files'
-    )
-
-    edited_files_string = '\n'.join([f'- `{file}`' for file in edited_files])
-    await update.message.reply_text(
-        MSG_REPORT_CREATED(bytes_written, edited_files_string))
+    raise NotImplementedError
 
 
 @auth_required(min_level=AccessLevel.USER)
-async def text_handler(update: Update, context: ContextTypes):
+async def text_handler(update: Update):
     """
     Handle text messages and use the OpenAI API to generate a response.
     """
@@ -131,7 +177,7 @@ async def text_handler(update: Update, context: ContextTypes):
 
 
 @auth_required(min_level=AccessLevel.ADMIN)
-async def get_users(update: Update, context: ContextTypes):
+async def get_users(update: Update):
     """
     Handle the /users command.
     """
@@ -154,7 +200,7 @@ async def get_users(update: Update, context: ContextTypes):
 
 
 @auth_required(min_level=AccessLevel.ADMIN)
-async def get_user(update: Update, context: ContextTypes):
+async def get_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     Handle the /user command.
     """
@@ -192,20 +238,22 @@ async def get_user(update: Update, context: ContextTypes):
 
     message = '\n'.join(message)
 
-    buttons = [[
-        InlineKeyboardButton(text='Удалить пользователя',
-                             callback_data=f'delete_user {user_id}')
-    ],
-               [
-                   InlineKeyboardButton(
-                       text='Изменить уровень доступа',
-                       callback_data=f'change_access_level {user_id}')
-               ],
-               [
-                   InlineKeyboardButton(
-                       text='Переслать обращения',
-                       callback_data=f'forward_requests {user_id}')
-               ]]
+    buttons = [
+        [
+            InlineKeyboardButton(text='Удалить пользователя',
+                                 callback_data=f'delete_user {user_id}')
+        ],
+        [
+            InlineKeyboardButton(
+                text='Изменить уровень доступа',
+                callback_data=f'change_access_level {user_id}')
+        ],
+        [
+            InlineKeyboardButton(
+                text='Переслать обращения',
+                callback_data=f'forward_requests {user_id}')
+        ]
+    ]
     keyboard = InlineKeyboardMarkup(buttons)
 
     await context.bot.send_message(chat_id=update.effective_chat.id,
@@ -214,25 +262,18 @@ async def get_user(update: Update, context: ContextTypes):
 
 
 @auth_required(min_level=AccessLevel.ADMIN, verbose=False)
-async def delete_user(update: Update, context: ContextTypes):
+@args_required(exact_arguments=2, error_message=MSG_NO_USER_ID, is_callback=True)
+async def delete_user(update: Update, args, query):
     """
     Handle the /delete_user command.
     """
 
     logger.debug(f'User {get_user_string(update)} used /delete_user command')
 
-    query = update.callback_query
-    await query.answer()
-
-    args = query.data.split(' ')
-    if len(args) != 2:
-        await query.edit_message_text(MSG_NO_USER_ID)
-        return
-
     user_id = args[1]
 
     if user_id.startswith('ID'):
-        user_id = user_id[2:]
+        user_id = int(user_id[2:])
 
     if not RedisCache().delete_user(user_id):
         await query.edit_message_text(MSG_USER_NOT_FOUND)
@@ -242,7 +283,7 @@ async def delete_user(update: Update, context: ContextTypes):
 
 
 @auth_required(min_level=AccessLevel.ADMIN, verbose=False)
-async def change_access_level(update: Update, context: ContextTypes):
+async def change_access_level(update: Update):
     """
     Handle the /change_access_level command.
     """
@@ -261,7 +302,7 @@ async def change_access_level(update: Update, context: ContextTypes):
     user_id = args[1]
 
     if user_id.startswith('ID'):
-        user_id = user_id[2:]
+        user_id = int(user_id[2:])
 
     user = RedisCache().get_user(user_id)
 
@@ -274,8 +315,7 @@ async def change_access_level(update: Update, context: ContextTypes):
         buttons.append([
             InlineKeyboardButton(
                 text=AccessLevel.get_access_level(access_level, 'ru'),
-                callback_data=
-                f'change_access_level_confirm {user_id} {access_level}')
+                callback_data=f'change_access_level_confirm {user_id} {access_level}')
         ])
 
     keyboard = InlineKeyboardMarkup(buttons)
@@ -307,7 +347,7 @@ async def change_access_level_confirm(update: Update,
     access_level = args[2]
 
     if user_id.startswith('ID'):
-        user_id = user_id[2:]
+        user_id = int(user_id[2:])
 
     user = RedisCache().get_user(user_id)
 
@@ -325,13 +365,12 @@ async def change_access_level_confirm(update: Update,
 
 
 @auth_required(min_level=AccessLevel.ADMIN, verbose=False)
-async def forward_requests(update: Update, context: ContextTypes):
+async def forward_requests(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     Handle the /forward_requests command.
     """
 
-    logger.debug(
-        f'User {get_user_string(update)} used /forward_requests command')
+    logger.debug(f'User {get_user_string(update)} used /forward_requests command')
 
     query = update.callback_query
     await query.answer()
@@ -344,7 +383,7 @@ async def forward_requests(update: Update, context: ContextTypes):
     user_id = args[1]
 
     if user_id.startswith('ID'):
-        user_id = user_id[2:]
+        user_id = int(user_id[2:])
 
     user = RedisCache().get_user(user_id)
 
@@ -359,7 +398,7 @@ async def forward_requests(update: Update, context: ContextTypes):
     await query.edit_message_text(MSG_REQUESTS_FORWARDED)
 
 
-async def help(update: Update, context: ContextTypes):
+async def help_info(update: Update):
     """
     Send a message when the command /help is issued.
     """
@@ -368,7 +407,7 @@ async def help(update: Update, context: ContextTypes):
 
 
 @auth_required(min_level=AccessLevel.USER)
-async def reset(update: Update, context: ContextTypes):
+async def reset(update: Update):
     """
     Reset the conversation with the user.
     """
@@ -413,7 +452,7 @@ def get_command_handlers() -> List[CommandHandler]:
 
     handlers = [
         CommandHandler('start', start),
-        CommandHandler('help', help),
+        CommandHandler('help', help_info),
         CommandHandler('reset', reset),
         CommandHandler('users', get_users),
         CommandHandler('user', get_user),

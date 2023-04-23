@@ -1,4 +1,3 @@
-
 # Text literals for bot messages
 
 MSG_START = 'Привет! Я бот, основанный на GPT-3.5 Turbo. Чтобы узнать, что я умею, напиши /help.\n' \
@@ -33,7 +32,11 @@ MSG_SELECT_ACCESS_LEVEL = 'Выберите уровень доступа:'
 MSG_ACCESS_LEVEL_CHANGED = 'Уровень доступа успешно изменен.'
 MSG_REQUESTS_FORWARDED = 'Запросы успешно перенаправлены.'
 
+MSG_ERROR_INCORRECT_ARGUMENTS = 'Неправильное количество аргументов'
+
 _MSG_REPORT_CREATED = 'Отчет о диалогах успешно создан. Записано байт: {}\n' \
-                     'Список новых/измененных файлов:\n{}'
+                      'Список новых/измененных файлов:\n{}'
+
+CALLBACK_ARGUMENTS_DIVIDER = ' '
 
 MSG_REPORT_CREATED = lambda bytes_written, edited_files: _MSG_REPORT_CREATED.format(bytes_written, edited_files)

@@ -19,7 +19,7 @@ class RedisCache:
             cls._instance.redis_client = redis.Redis(host=REDIS_HOST,
                                                      port=REDIS_PORT,
                                                      db=REDIS_DB_INDEX,
-                                                     password=REIDS_PASSWORD)
+                                                     password=REDIS_PASSWORD)
         return cls._instance
 
     def get_users(self) -> Dict[str, dict]:

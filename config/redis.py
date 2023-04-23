@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from config.environment import REIDS_PASSWORD
+from config.environment import REDIS_PASSWORD
 
 # Redis parameters
 REDIS_HOST = 'localhost'
