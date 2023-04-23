@@ -20,7 +20,7 @@ pip install -r requirements.txt
 ## Использование
 
 ```bash
-python chatbot.py
+python main.py
 ```
 
 ## Contributing
