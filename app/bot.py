@@ -3,18 +3,17 @@ from functools import wraps
 from typing import Callable, List, Any
 
 from loguru import logger
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery
 from telegram.ext import (CallbackQueryHandler, CommandHandler, ContextTypes,
                           MessageHandler, filters)
 
 from app.model import LanguageModel
 from app.redis import RedisCache
-from app.reports import generate_report
 from config import *
 from utils.strings import *
 
 
-def independent_call(func, *args, **kwargs) -> Any:
+async def independent_call(func, *args, **kwargs) -> Any:
     """
     Wrapper around logic of running function async-/synchronously depending
     on target function type - telegram handler or business logic.
@@ -51,14 +50,22 @@ def auth_required(min_level=AccessLevel.GUEST, verbose=True, **kwargs: dict):
         @wraps(func)
         async def wrapper(update, context):
             user = RedisCache().get_user_by_update(update)
-            if user.get(REDIS_USER_ACCESS_LEVEL_KEY,
-                        DEFAULT_ACCESS_LEVEL) < min_level:
+            if not user:
                 if verbose:
-                    await update.message.reply_text(
-                        MSG_NEED_HIGHER_ACCESS_LEVEL)
+                    await update.message.reply_text(MSG_ERROR_UNKNOWN)
                 return
 
-            independent_call(func, update, context)
+            if MAINTENANCE_MODE:
+                if user.get(REDIS_USER_ACCESS_LEVEL_KEY, DEFAULT_ACCESS_LEVEL) < AccessLevel.ADMIN:
+                    await update.message.reply_text(MSG_STATE_MAINTENANCE)
+                    return
+
+            if user.get(REDIS_USER_ACCESS_LEVEL_KEY, DEFAULT_ACCESS_LEVEL) < min_level:
+                if verbose:
+                    await update.message.reply_text(MSG_NEED_HIGHER_ACCESS_LEVEL)
+                return
+
+            await independent_call(func, update, context)
 
         return wrapper
 
@@ -93,11 +100,11 @@ def args_required(min_arguments=None, exact_arguments=None, error_message=None, 
             args_to_provide = (func, update, context, args, query)
 
             if exact_arguments and args_count == exact_arguments:
-                independent_call(args_to_provide)
+                await independent_call(args_to_provide)
                 return
 
             if min_arguments and args_count >= min_arguments:
-                independent_call(args_to_provide)
+                await independent_call(args_to_provide)
                 return
 
             await query.edit_message_text(error_message or MSG_ERROR_INCORRECT_ARGUMENTS)
@@ -108,7 +115,7 @@ def args_required(min_arguments=None, exact_arguments=None, error_message=None, 
 
 
 @auth_required()
-async def start(update: Update):
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     Handle the /start command.
     """
@@ -118,7 +125,7 @@ async def start(update: Update):
     await update.message.reply_text(MSG_START)
 
 
-async def unknown_command(update: Update):
+async def unknown_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     Handle unknown commands.
     """
@@ -128,7 +135,7 @@ async def unknown_command(update: Update):
     await update.message.reply_text(MSG_UNKNOWN_COMMAND)
 
 
-async def error_handler(update: Update, context: ContextTypes):
+async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     Log errors caused by updates.
     """
@@ -137,7 +144,7 @@ async def error_handler(update: Update, context: ContextTypes):
 
 
 @auth_required(min_level=AccessLevel.ADMIN)
-async def dump(update: Update):
+async def dump(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     Dumps all user conversations to disk.
     """
@@ -150,7 +157,7 @@ async def dump(update: Update):
 
 
 @auth_required(min_level=AccessLevel.USER)
-async def text_handler(update: Update):
+async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     Handle text messages and use the OpenAI API to generate a response.
     """
@@ -165,7 +172,7 @@ async def text_handler(update: Update):
     user = RedisCache().get_user_by_update(update)
 
     message_text = update.message.text
-    answer = LanguageModel().create_answer(message_text, user)
+    answer = await LanguageModel().create_answer(message_text, user)
 
     await placeholder_message.delete()
 
@@ -177,7 +184,7 @@ async def text_handler(update: Update):
 
 
 @auth_required(min_level=AccessLevel.ADMIN)
-async def get_users(update: Update):
+async def get_users(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     Handle the /users command.
     """
@@ -263,7 +270,7 @@ async def get_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 @auth_required(min_level=AccessLevel.ADMIN, verbose=False)
 @args_required(exact_arguments=2, error_message=MSG_NO_USER_ID, is_callback=True)
-async def delete_user(update: Update, args, query):
+async def delete_user(update: Update, args: list, query: CallbackQuery):
     """
     Handle the /delete_user command.
     """
@@ -283,7 +290,7 @@ async def delete_user(update: Update, args, query):
 
 
 @auth_required(min_level=AccessLevel.ADMIN, verbose=False)
-async def change_access_level(update: Update):
+async def change_access_level(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     Handle the /change_access_level command.
     """
@@ -398,7 +405,7 @@ async def forward_requests(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.edit_message_text(MSG_REQUESTS_FORWARDED)
 
 
-async def help_info(update: Update):
+async def help_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     Send a message when the command /help is issued.
     """
@@ -407,7 +414,7 @@ async def help_info(update: Update):
 
 
 @auth_required(min_level=AccessLevel.USER)
-async def reset(update: Update):
+async def reset(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     Reset the conversation with the user.
     """
@@ -457,14 +464,11 @@ def get_command_handlers() -> List[CommandHandler]:
         CommandHandler('users', get_users),
         CommandHandler('user', get_user),
         CallbackQueryHandler(get_users, pattern=r'^/users \d+$'),
-        CallbackQueryHandler(get_user, pattern=r'^/user \d+$'),  # 
+        CallbackQueryHandler(get_user, pattern=r'^/user \d+$'),
         CallbackQueryHandler(delete_user, pattern=r'^delete_user \d+$'),
-        CallbackQueryHandler(change_access_level,
-                             pattern=r'^change_access_level \d+$'),
-        CallbackQueryHandler(change_access_level_confirm,
-                             pattern=r'^change_access_level_confirm \d+ \d+$'),
-        CallbackQueryHandler(forward_requests,
-                             pattern=r'^forward_requests \d+$'),
+        CallbackQueryHandler(change_access_level, pattern=r'^change_access_level \d+$'),
+        CallbackQueryHandler(change_access_level_confirm, pattern=r'^change_access_level_confirm \d+ \d+$'),
+        CallbackQueryHandler(forward_requests, pattern=r'^forward_requests \d+$'),
         get_raw_text_handler(),
         get_unknown_command_handler(),
     ]

@@ -9,7 +9,7 @@ OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY')
 TELEGRAM_TOKEN = os.environ.get('TELEGRAM_TOKEN')
 
 # Startup
-PRODUCTION = bool(os.environ.get('PRODUCTION', 1))
+MAINTENANCE_MODE = os.environ.get('MAINTENANCE_MODE')
 
 # Redis
 REDIS_PASSWORD = os.environ.get('REIDS_PASSWORD', None)

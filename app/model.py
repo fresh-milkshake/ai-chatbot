@@ -1,27 +1,61 @@
+from datetime import datetime
+
 import openai
+from loguru import logger
+
 from app.redis import RedisCache
 from config import MODEL_NAME, OPENAI_API_KEY
-from config.strings import (MSG_ERROR_MODEL_API_ERROR,
-                            MSG_ERROR_MODEL_INVALID_REQUEST_ERROR,
-                            MSG_ERROR_MODEL_OPENAI_ERROR)
-from loguru import logger
+from config.strings import (
+    MSG_ERROR_MODEL_API_ERROR,
+    MSG_ERROR_MODEL_INVALID_REQUEST_ERROR,
+    MSG_ERROR_MODEL_OPENAI_ERROR,
+)
 
 logger.info('Defining OpenAI API key')
 openai.api_key = OPENAI_API_KEY
 
 
 class LanguageModel:
+    """
+    A class that encapsulates the OpenAI language model and provides an interface to use it.
+
+    Attributes:
+        errors (list): A list of errors that occurred while using the OpenAI API.
+        success_count (int): The number of successful API calls made.
+        total_count (int): The total number of API calls made.
+    """
 
     _instance = None
 
     def __new__(cls):
+        """
+        Create a new instance of the LanguageModel class if one does not exist.
+
+        Returns:
+            The LanguageModel instance.
+        """
         if cls._instance is None:
             logger.info('Creating new LanguageModel instance')
             cls._instance = super(LanguageModel, cls).__new__(cls)
-
+            cls.errors = []
+            cls.success_count = 0
+            cls.total_count = 0
         return cls._instance
 
-    def create_answer(self, message: str, user: dict) -> str:
+    async def handle_model_error(self, error: openai.OpenAIError) -> None:
+        """
+        Handle an error that occurred while using the OpenAI API.
+
+        Args:
+            error: The OpenAI error to handle.
+        """
+        error_message = str(error)
+        error_info = {'type': type(error).__name__, 'message': error_message}
+        logger.error(f'OpenAI API error: {error_message[:100]}...', error_info=error_info)
+        self.errors.append({'error': error_message, 'type': type(error).__name__, 'timestamp': datetime.now()})
+        self.total_count += 1
+
+    async def create_answer(self, message: str, user: dict) -> str:
         """
         Create an answer to a message using the OpenAI API.
 
@@ -32,28 +66,45 @@ class LanguageModel:
         Returns:
             The answer to the message or an error message if the API call failed.
         """
-
         new_message = {'role': 'user', 'content': message}
         previous_conversation = user.get('conversation', [])
         messages = [*previous_conversation, new_message]
+        response = None
+        answer = ''
 
         try:
-            # logger.debug(f'Calling OpenAI API for message: "{message}"')
-            response = openai.ChatCompletion.create(model=MODEL_NAME,
-                                                    messages=messages)
-            # logger.debug(f'OpenAI API response: {response}')
+            response = openai.ChatCompletion.create(model=MODEL_NAME, messages=messages)
             choice = response.get('choices')[0]
             answer = choice.get('message').get('content')
             answer = answer.strip()
         except openai.InvalidRequestError as e:
-            logger.error(f'OpenAI API error: {e}')
-            return MSG_ERROR_MODEL_INVALID_REQUEST_ERROR
+            await self.handle_model_error(e)
+            error_message = MSG_ERROR_MODEL_INVALID_REQUEST_ERROR
         except openai.APIError as e:
-            logger.error(f'OpenAI API error: {e}')
-            return MSG_ERROR_MODEL_API_ERROR
+            await self.handle_model_error(e)
+            error_message = MSG_ERROR_MODEL_API_ERROR
         except openai.OpenAIError as e:
-            logger.error(f'OpenAI API error: {e}')
-            return MSG_ERROR_MODEL_OPENAI_ERROR
+            await self.handle_model_error(e)
+            error_message = MSG_ERROR_MODEL_OPENAI_ERROR
+        else:
+            error_message = None
+            self.success_count += 1
+
+        if error_message is not None:
+            error_info = {
+                'user_id': user.get('id'),
+                'message': message,
+                'previous_conversation': previous_conversation,
+                'response': response.to_dict() if response else None,
+                'error_message': error_message,
+                'timestamp': datetime.now()
+            }
+            logger.error(error_message, error_info=error_info)
+            self.errors.append(
+                {'error': error_message, 'user_id': user.get('id'), 'message': message, 'timestamp': datetime.now()})
+            self.total_count += 1
+
+            return error_message
 
         user['conversation'] = [
             *messages, {
@@ -65,3 +116,17 @@ class LanguageModel:
         RedisCache().update_user(user['id'], user)
 
         return answer
+
+    @property
+    def stability_percentage(self) -> float:
+        """
+        Calculate the percentage of stable operation.
+
+        Returns:
+            The percentage of stable operation, as a float between 0.0 and 100.0.
+        """
+
+        if self.total_count == 0:
+            return 100.0
+
+        return 100.0 * self.success_count / self.total_count
