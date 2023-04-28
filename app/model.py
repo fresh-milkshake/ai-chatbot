@@ -3,11 +3,11 @@ from datetime import datetime
 import openai
 from loguru import logger
 
+from app.dto import User
 from app.redis import RedisCache
-from config import MODEL_NAME, OPENAI_API_KEY
+from config import GLOBAL_DEFAULT_MODEL, OPENAI_API_KEY
 from config.strings import (
     MSG_ERROR_MODEL_API_ERROR,
-    MSG_ERROR_MODEL_INVALID_REQUEST_ERROR,
     MSG_ERROR_MODEL_OPENAI_ERROR,
 )
 
@@ -51,11 +51,11 @@ class LanguageModel:
         """
         error_message = str(error)
         error_info = {'type': type(error).__name__, 'message': error_message}
-        logger.error(f'OpenAI API error: {error_message[:100]}...', error_info=error_info)
+        logger.error(f'OpenAI API error: {error_message}...', error_info=error_info)
         self.errors.append({'error': error_message, 'type': type(error).__name__, 'timestamp': datetime.now()})
         self.total_count += 1
 
-    async def create_answer(self, message: str, user: dict) -> str:
+    async def create_answer(self, message: str, user: dict | User) -> str:
         """
         Create an answer to a message using the OpenAI API.
 
@@ -66,6 +66,10 @@ class LanguageModel:
         Returns:
             The answer to the message or an error message if the API call failed.
         """
+
+        if isinstance(user, User):
+            user = user.to_dict()
+
         new_message = {'role': 'user', 'content': message}
         previous_conversation = user.get('conversation', [])
         messages = [*previous_conversation, new_message]
@@ -73,19 +77,24 @@ class LanguageModel:
         answer = ''
 
         try:
-            response = openai.ChatCompletion.create(model=MODEL_NAME, messages=messages)
+            response = openai.ChatCompletion.create(model=GLOBAL_DEFAULT_MODEL.name,  # TODO: replace GLOBAL_DEFAULT_MODEL with new user DTO
+                                                    messages=messages)
             choice = response.get('choices')[0]
             answer = choice.get('message').get('content')
             answer = answer.strip()
-        except openai.InvalidRequestError as e:
-            await self.handle_model_error(e)
-            error_message = MSG_ERROR_MODEL_INVALID_REQUEST_ERROR
+
         except openai.APIError as e:
-            await self.handle_model_error(e)
             error_message = MSG_ERROR_MODEL_API_ERROR
+            await self.handle_model_error(e)
+
         except openai.OpenAIError as e:
             await self.handle_model_error(e)
             error_message = MSG_ERROR_MODEL_OPENAI_ERROR
+
+        except Exception as e:
+            error_message = MSG_ERROR_MODEL_OPENAI_ERROR
+            await self.handle_model_error(e)
+
         else:
             error_message = None
             self.success_count += 1
@@ -104,7 +113,7 @@ class LanguageModel:
                 {'error': error_message, 'user_id': user.get('id'), 'message': message, 'timestamp': datetime.now()})
             self.total_count += 1
 
-            return error_message
+            return error_message + f'\n\nУровень стабильности: {self.stability_percentage:.2f}%'
 
         user['conversation'] = [
             *messages, {

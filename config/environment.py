@@ -1,5 +1,4 @@
 import os
-
 import dotenv
 
 dotenv.load_dotenv()
@@ -12,4 +11,4 @@ TELEGRAM_TOKEN = os.environ.get('TELEGRAM_TOKEN')
 MAINTENANCE_MODE = os.environ.get('MAINTENANCE_MODE')
 
 # Redis
-REDIS_PASSWORD = os.environ.get('REIDS_PASSWORD', None)
+REDIS_PASSWORD = os.environ.get('REDIS_PASSWORD', None)

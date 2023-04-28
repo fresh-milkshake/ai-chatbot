@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from config.environment import REDIS_PASSWORD
+from config.general import GLOBAL_DEFAULT_MODEL
 
 # Redis parameters
 REDIS_HOST = 'localhost'
@@ -12,6 +12,8 @@ REDIS_USER_ACCESS_LEVEL_KEY = 'access_level'
 REDIS_USER_CONVERSATION_KEY = 'conversation'
 REDIS_USER_UNIQUE_ID_KEY = 'unique_id'
 REDIS_USER_LANGUAGE_CODE = 'language_code'
+REDIS_USER_LOCAL_MODEL = 'local_model'
+
 
 # User defaults
 @dataclass
@@ -41,7 +43,6 @@ class AccessLevel:
         },
     }
 
-
     @classmethod
     def get_access_level(cls, access_level: int, locale: str = 'ru') -> str:
         match access_level:
@@ -62,5 +63,6 @@ DEFAULT_CONVERSATION = []
 
 DEFAULT_NEW_USER = {
     REDIS_USER_ACCESS_LEVEL_KEY: DEFAULT_ACCESS_LEVEL,
-    REDIS_USER_CONVERSATION_KEY: DEFAULT_CONVERSATION
+    REDIS_USER_CONVERSATION_KEY: DEFAULT_CONVERSATION,
+    REDIS_USER_LOCAL_MODEL: GLOBAL_DEFAULT_MODEL
 }

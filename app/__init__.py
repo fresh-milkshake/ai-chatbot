@@ -14,4 +14,5 @@ for handler in bot.get_command_handlers():
 
 if MAINTENANCE_MODE == 'True':
     logger.info('Maintenance mode is enabled')
+else:
     application.add_error_handler(bot.error_handler)

@@ -2,14 +2,14 @@ import json
 from typing import Dict
 
 import redis
-from config.redis import *
 from loguru import logger
 from telegram import Update
+
+from config import REDIS_PASSWORD, REDIS_DB_INDEX, REDIS_PORT, REDIS_HOST, DEFAULT_NEW_USER
 from utils.strings import get_user_string
 
 
 class RedisCache:
-
     _instance = None
 
     def __new__(cls):
