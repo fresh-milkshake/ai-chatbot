@@ -1,6 +1,6 @@
 import os
 
-from config.general import PROJECT_DIR, PROJECT_NAME
+from config.paths import PROJECT_DIR, PROJECT_NAME
 
 # Logging parameters
 

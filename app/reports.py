@@ -17,7 +17,7 @@
 import os
 from typing import List, Tuple
 
-from config.general import REPORTS_PATH
+from config.paths import REPORTS_PATH
 
 
 def generate_report(users: dict) -> Tuple[List[str], int]:
