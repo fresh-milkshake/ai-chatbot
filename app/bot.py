@@ -206,6 +206,65 @@ async def get_users(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(users)
 
 
+@auth_required(min_level=AccessLevel.USER)
+async def choose_model(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Handle the /model command.
+    """
+
+    logger.debug(f'User {get_user_string(update)} used /model command')
+
+    user = RedisCache().get_user_by_update(update)
+
+    # reply with keyboard with avaliable models for user
+# Model = namedtuple('Model', ['name', 'temperature', 'min_access_level'],
+#                    defaults=[None, _DEFAULT_TEMPERATURE, _DEFAULT_MIN_ACCESS_LEVEL])
+
+    keyboard = []
+    for model in Models.ALL:
+        if user.get(REDIS_USER_ACCESS_LEVEL_KEY, DEFAULT_ACCESS_LEVEL) >= model.min_access_level:
+            keyboard.append([InlineKeyboardButton(model.name, callback_data=f'choose_model:{model.name}')])
+
+    keyboard = InlineKeyboardMarkup(keyboard)
+
+    await update.message.reply_text(MSG_CHOOSE_MODEL, reply_markup=keyboard)
+
+
+@auth_required(min_level=AccessLevel.USER)
+async def choose_model_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Handle the /model callback.
+    """
+
+    logger.debug(f'User {get_user_string(update)} used /model callback')
+
+    user = RedisCache().get_user_by_update(update)
+
+    model_name = update.callback_query.data.split(':')[1]
+
+    for model in Models.ALL:
+        if model.name == model_name:
+            user[REDIS_USER_LOCAL_MODEL] = model_name
+            RedisCache().update_user(
+                user.get('id'), user
+            )
+            break
+
+    await update.callback_query.answer()
+    await update.callback_query.edit_message_text(MSG_MODEL_CHOSEN.format(model_name))
+
+
+@auth_required(min_level=AccessLevel.USER)
+async def state(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Handle the /state command.
+    """
+
+    logger.debug(f'User {get_user_string(update)} used /state command')
+
+    await update.message.reply_text(MSG_STATE.format(LanguageModel.stability_percentage))
+
+
 @auth_required(min_level=AccessLevel.ADMIN)
 async def get_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
@@ -463,6 +522,8 @@ def get_command_handlers() -> List[CommandHandler]:
         CommandHandler('reset', reset),
         CommandHandler('users', get_users),
         CommandHandler('user', get_user),
+        CommandHandler('model', choose_model),
+        CallbackQueryHandler(choose_model_callback, pattern=r'^choose_model:.*$'),
         CallbackQueryHandler(get_users, pattern=r'^/users \d+$'),
         CallbackQueryHandler(get_user, pattern=r'^/user \d+$'),
         CallbackQueryHandler(delete_user, pattern=r'^delete_user \d+$'),

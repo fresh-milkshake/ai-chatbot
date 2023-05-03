@@ -77,7 +77,8 @@ class LanguageModel:
         answer = ''
 
         try:
-            response = openai.ChatCompletion.create(model=user.get(REDIS_USER_LOCAL_MODEL, GLOBAL_DEFAULT_MODEL),
+            logger.info(f'Calling OpenAI API "{user.get(REDIS_USER_LOCAL_MODEL, "UNKNOW")}" model')
+            response = openai.ChatCompletion.create(model=user.get(REDIS_USER_LOCAL_MODEL, GLOBAL_DEFAULT_MODEL.name),
                                                     messages=messages)
             choice = response.get('choices')[0]
             answer = choice.get('message').get('content')
