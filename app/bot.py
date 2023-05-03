@@ -262,7 +262,7 @@ async def state(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     logger.debug(f'User {get_user_string(update)} used /state command')
 
-    await update.message.reply_text(MSG_STATE.format(LanguageModel.stability_percentage))
+    await update.message.reply_text(MSG_STATE.format(LanguageModel().stability_percentage))
 
 
 @auth_required(min_level=AccessLevel.ADMIN)
@@ -523,6 +523,7 @@ def get_command_handlers() -> List[CommandHandler]:
         CommandHandler('users', get_users),
         CommandHandler('user', get_user),
         CommandHandler('model', choose_model),
+        CommandHandler('state', state),
         CallbackQueryHandler(choose_model_callback, pattern=r'^choose_model:.*$'),
         CallbackQueryHandler(get_users, pattern=r'^/users \d+$'),
         CallbackQueryHandler(get_user, pattern=r'^/user \d+$'),

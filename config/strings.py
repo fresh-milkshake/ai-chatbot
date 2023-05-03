@@ -48,6 +48,6 @@ CALLBACK_ARGUMENTS_DIVIDER = ' '
 
 MSG_REPORT_CREATED = lambda bytes_written, edited_files: _MSG_REPORT_CREATED.format(bytes_written, edited_files)
 
-MSG_MODEL_CHOSEN = 'Выбрана модель: *{0}*'
-MSG_STATE = 'Стабильность работы в данный момент: {}%'
+MSG_MODEL_CHOSEN = 'Выбрана модель: {0}'
+MSG_STATE = 'Стабильность работы в данный момент: {0:.2f}%'
 MSG_CHOOSE_MODEL = 'Выберите модель для генерации текста:'
