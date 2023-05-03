@@ -12,7 +12,7 @@ application = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
 for handler in bot.get_command_handlers():
     application.add_handler(handler)
 
-if MAINTENANCE_MODE == 'True':
+if MAINTENANCE_MODE:
     logger.info('Maintenance mode is enabled')
 else:
     application.add_error_handler(bot.error_handler)
