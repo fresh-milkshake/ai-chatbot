@@ -5,7 +5,7 @@ from loguru import logger
 
 from app.dto import User
 from app.redis import RedisCache
-from config import GLOBAL_DEFAULT_MODEL, OPENAI_API_KEY
+from config import GLOBAL_DEFAULT_MODEL, OPENAI_API_KEY, REDIS_USER_LOCAL_MODEL
 from config.strings import (
     MSG_ERROR_MODEL_API_ERROR,
     MSG_ERROR_MODEL_OPENAI_ERROR,
@@ -77,7 +77,7 @@ class LanguageModel:
         answer = ''
 
         try:
-            response = openai.ChatCompletion.create(model=GLOBAL_DEFAULT_MODEL.name,  # TODO: replace GLOBAL_DEFAULT_MODEL with new user DTO
+            response = openai.ChatCompletion.create(model=user.get(REDIS_USER_LOCAL_MODEL, GLOBAL_DEFAULT_MODEL),
                                                     messages=messages)
             choice = response.get('choices')[0]
             answer = choice.get('message').get('content')
