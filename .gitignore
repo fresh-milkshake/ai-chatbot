@@ -21,18 +21,12 @@ ehthumbs.db
 # Sensetive data
 .env
 data
-
+config.ini
 
 # Logs
 logs
 *.log
 Thumbs.db
 
-# Tests
-*_test.py
-test_*.py
-test.py
-/tests
-
 # Specific
-/installation
+/experiments
