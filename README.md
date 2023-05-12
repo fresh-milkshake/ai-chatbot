@@ -14,7 +14,7 @@ This is a simple chatbot that uses the OpenAI API to generate responses to user 
 Clone the repository and install the dependencies.
 
 ```bash
-git clone https://github.com/immacool/ai-chatbot.git
+git clone https://github.com/fresh-milkshake/ai-chatbot.git
 cd ai-chatbot
 pip install -r requirements.txt
 ```

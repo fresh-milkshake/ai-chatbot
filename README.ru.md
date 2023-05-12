@@ -14,7 +14,7 @@
 Клонируйте репозиторий и установите зависимости.
 
 ```bash
-git clone https://github.com/immacool/ai-chatbot.git
+git clone https://github.com/fresh-milkshake/ai-chatbot.git
 cd ai-chatbot
 pip install -r requirements.txt
 ```
