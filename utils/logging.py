@@ -1,7 +1,6 @@
 import sys
 
-from config import LOG_FILE_PATH
-from config.logging import *
+from experiments.config import *
 from loguru import logger
 
 

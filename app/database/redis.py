@@ -5,25 +5,71 @@ import redis
 from loguru import logger
 from telegram import Update
 
-from config import REDIS_PASSWORD, REDIS_DB_INDEX, REDIS_PORT, REDIS_HOST, DEFAULT_NEW_USER
-from app.utils import get_user_string
-
 from app.dto import User
+from app.utils import get_user_string, Singleton
+from experiments.config import REDIS_PASSWORD, REDIS_DB_INDEX, REDIS_PORT, REDIS_HOST, DEFAULT_NEW_USER
 
 
-class RedisCache:
-    _instance = None
+def crud_request(func):
+    """
+    Decorator for class methods to handle Redis connection errors.
 
-    def __new__(cls):
-        if cls._instance is None:
+    Returns:
+        The decorated function.
+
+    See Also:
+        :class:`app.database.redis.RedisCache` for example usage.
+    """
+
+    def error_handler(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except redis.exceptions.ConnectionError:
+            logger.error('REDIS: Connection error')
+            return None
+        except Exception as e:
+            logger.exception(f'REDIS: Unknown error: {e}')
+            return None
+
+    return error_handler
+
+
+# TODO: test and look after this class after migration from custom Singleton implementation to Singleton inheritance from app.utils
+class RedisCache(Singleton):
+    """
+    Singleton class for interacting with Redis Caching database.
+
+    Attributes:
+        redis_client: :class:`redis.Redis` instance for interacting with Redis database.
+
+    See Also:
+        :func:`app.database.redis.crud_request` for handling Redis connection errors.
+        :class:`app.utils.Singleton` for singleton implementation.
+    """
+
+    # _instance = None
+
+    # def __new__(cls):
+    #     if cls._instance is None:
+    #         logger.info('Creating new RedisCache instance')
+    #         cls._instance = super(RedisCache, cls).__new__(cls)
+    #         cls._instance.redis_client = redis.Redis(host=REDIS_HOST,
+    #                                                  port=REDIS_PORT,
+    #                                                  db=REDIS_DB_INDEX,
+    #                                                  password=REDIS_PASSWORD)
+    #     return cls._instance
+
+    redis_client: redis.Redis = None
+
+    def __init__(self):
+        if self.redis_client is None:
             logger.info('Creating new RedisCache instance')
-            cls._instance = super(RedisCache, cls).__new__(cls)
-            cls._instance.redis_client = redis.Redis(host=REDIS_HOST,
-                                                     port=REDIS_PORT,
-                                                     db=REDIS_DB_INDEX,
-                                                     password=REDIS_PASSWORD)
-        return cls._instance
+            self.redis_client = redis.Redis(host=REDIS_HOST,
+                                            port=REDIS_PORT,
+                                            db=REDIS_DB_INDEX,
+                                            password=REDIS_PASSWORD)
 
+    @crud_request
     def get_users(self) -> Dict[str, dict]:
         """
         Get all user data from the Redis cache.
@@ -42,6 +88,7 @@ class RedisCache:
             }
         return users
 
+    @crud_request
     def update_users(self, users: Dict[str, dict]) -> bool:
         """
         Update all user data in the Redis cache.
@@ -66,6 +113,7 @@ class RedisCache:
             logger.error(f"REDIS: Failed to update users: {e}")
             return False
 
+    @crud_request
     def update_user(self, user_id: int, user_data: dict) -> bool:
         """
         Update user data for a given user ID.
@@ -88,6 +136,7 @@ class RedisCache:
             logger.error(f"REDIS: Failed to update user {user_id}: {e}")
             return False
 
+    @crud_request
     def _get_user_by_id(self, user_id: int) -> dict:
         """
         Get user data for a given user ID.
@@ -106,6 +155,7 @@ class RedisCache:
             for k, v in user_data_raw.items()
         }
 
+    @crud_request
     def get_user(self, user_id: int) -> dict:
         """
         Get user data for a given user ID.
@@ -122,6 +172,7 @@ class RedisCache:
             logger.warning(f"REDIS: User with ID {user_id} not found")
         return user_data
 
+    @crud_request
     def get_user_by_update(self, update: Update) -> dict:
         """
         Get user data for a given update object.
@@ -140,6 +191,7 @@ class RedisCache:
             user_data = self._get_user_by_id(user_id)
         return user_data
 
+    @crud_request
     def delete_user(self, user_id: int) -> bool:
         """
         Delete user data for a given user ID.
@@ -158,6 +210,7 @@ class RedisCache:
             logger.error(f"REDIS: Failed to delete user {user_id}: {e}")
             return False
 
+    @crud_request
     def create_user_from_update(self, update: Update) -> bool:
         """
         Create a new user from an update object.

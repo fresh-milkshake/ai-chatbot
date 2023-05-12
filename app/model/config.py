@@ -1,6 +1,6 @@
 from collections import namedtuple
 
-from config.redis import AccessLevel
+from experiments.config import AccessLevel
 
 # Model parameters
 _DEFAULT_TEMPERATURE = 0.7
@@ -9,7 +9,7 @@ Model = namedtuple('Model', ['name', 'temperature', 'min_access_level'],
                    defaults=['UNDEFINED', _DEFAULT_TEMPERATURE, _DEFAULT_MIN_ACCESS_LEVEL])
 
 
-class Models:
+class AvailableModels:
     GPT3_5_TURBO = Model('gpt-3.5-turbo', _DEFAULT_TEMPERATURE, AccessLevel.USER)
     GPT4 = Model('gpt-4', _DEFAULT_TEMPERATURE, AccessLevel.PRIVILEGED_USER)
     GPT4_32K = Model('gpt-4-32k', _DEFAULT_TEMPERATURE, AccessLevel.PRIVILEGED_USER)
@@ -20,7 +20,7 @@ class Models:
     ALL = [GPT3_5_TURBO, GPT4, GPT4_32K, TEXT_DAVINCI_003, CODE_DAVINCI_002]
 
 
-GLOBAL_DEFAULT_MODEL = Models.GPT3_5_TURBO
+GLOBAL_DEFAULT_MODEL = AvailableModels.GPT3_5_TURBO
 
 # Model answer formatting parameters
 DIVIDER = '=' * 50

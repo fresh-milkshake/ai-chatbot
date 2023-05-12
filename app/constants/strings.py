@@ -55,9 +55,6 @@ MSG_REQUESTS_FORWARDED = 'Запросы успешно перенаправле
 MSG_CHOOSE_MODEL = 'Выберите модель для генерации текста:'
 MSG_MODEL_CHOSEN = 'Выбрана модель: {0}'
 
-# Callback arguments
-CALLBACK_ARGUMENTS_DIVIDER = ' '
-
 # Error messages for incorrect arguments
 MSG_ERROR_INCORRECT_ARGUMENTS = 'Неправильное количество аргументов'
 

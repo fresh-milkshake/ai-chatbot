@@ -5,8 +5,8 @@ from loguru import logger
 
 from app.dto import User
 from app.database.redis import RedisCache
-from config import GLOBAL_DEFAULT_MODEL, OPENAI_API_KEY, REDIS_USER_LOCAL_MODEL
-from config.strings import (
+from experiments.config import GLOBAL_DEFAULT_MODEL, OPENAI_API_KEY, REDIS_USER_LOCAL_MODEL
+from experiments.config import (
     MSG_ERROR_MODEL_API_ERROR,
     MSG_ERROR_MODEL_OPENAI_ERROR,
 )

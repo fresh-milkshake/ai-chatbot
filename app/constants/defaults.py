@@ -1,9 +1,9 @@
 from . import RedisKeys, AccessLevel
-from app.model.config import Models
+from app.model.config import AvailableModels
 
 DEFAULT_ACCESS_LEVEL = AccessLevel.GUEST
 DEFAULT_CONVERSATION = []
-DEFAULT_MODEL = Models.GPT3_5_TURBO
+DEFAULT_MODEL = AvailableModels.GPT3_5_TURBO
 
 DEFAULT_NEW_USER = {
     RedisKeys.User.ACCESS_LEVEL: DEFAULT_ACCESS_LEVEL,

@@ -57,7 +57,7 @@ class AccessLevel:
     }
 
     @property
-    def all(self):
+    def all(self) -> list[int]:
         """
         Returns a list of all access levels as integers.
 
