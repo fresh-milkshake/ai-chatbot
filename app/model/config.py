@@ -1,5 +1,4 @@
 from collections import namedtuple
-from dataclasses import dataclass
 
 from config.redis import AccessLevel
 
@@ -10,7 +9,6 @@ Model = namedtuple('Model', ['name', 'temperature', 'min_access_level'],
                    defaults=['UNDEFINED', _DEFAULT_TEMPERATURE, _DEFAULT_MIN_ACCESS_LEVEL])
 
 
-@dataclass
 class Models:
     GPT3_5_TURBO = Model('gpt-3.5-turbo', _DEFAULT_TEMPERATURE, AccessLevel.USER)
     GPT4 = Model('gpt-4', _DEFAULT_TEMPERATURE, AccessLevel.PRIVILEGED_USER)
