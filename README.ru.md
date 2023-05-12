@@ -1,3 +1,5 @@
+![ai-chatbot](images/Sprite-0003.png)
+
 # ai-chatbot
 
 [This file in English](README.md)
