@@ -7,7 +7,9 @@ from telegram import Update
 
 from app.dto import User
 from app.utils import get_user_string, Singleton
-from experiments.config import REDIS_PASSWORD, REDIS_DB_INDEX, REDIS_PORT, REDIS_HOST, DEFAULT_NEW_USER
+
+from app.startup import REDIS_PASSWORD, REDIS_HOST, REDIS_PORT, REDIS_DB_INDEX
+from app.constants.defaults import DEFAULT_NEW_USER
 
 
 def crud_request(func):

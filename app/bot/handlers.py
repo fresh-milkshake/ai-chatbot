@@ -12,7 +12,7 @@ from app.bot.utils import BotWrapper, auth_required, args_required
 from app.constants import AccessLevel, RedisKeys
 from app.constants.defaults import DEFAULT_ACCESS_LEVEL
 from app.database import RedisCache
-from app.model.config import AvailableModels
+from app.constants.models import AvailableModels
 from app.model import ExternalLanguageModel
 from app.startup import TELEGRAM_TOKEN
 from app.utils import get_user_string
@@ -43,6 +43,7 @@ async def unknown_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(strings.MSG_UNKNOWN_COMMAND)
 
 
+@bot.error_handler()
 async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     Log errors caused by updates.
@@ -51,6 +52,7 @@ async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     logger.error(f'{update} ---> {context.error}')
 
 
+@bot.handler_for('dump')
 @auth_required(min_level=AccessLevel.ADMIN)
 async def dump(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
@@ -64,6 +66,7 @@ async def dump(update: Update, context: ContextTypes.DEFAULT_TYPE):
     raise NotImplementedError
 
 
+@bot.text_handler()
 @auth_required(min_level=AccessLevel.USER)
 async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
@@ -91,6 +94,7 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(answer)
 
 
+@bot.handler_for('users')
 @auth_required(min_level=AccessLevel.ADMIN)
 async def get_users(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
@@ -114,6 +118,7 @@ async def get_users(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(users)
 
 
+@bot.handler_for('model')
 @auth_required(min_level=AccessLevel.USER)
 async def choose_model(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
@@ -134,6 +139,7 @@ async def choose_model(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(strings.MSG_CHOOSE_MODEL, reply_markup=keyboard)
 
 
+@bot.callback_for('choose_model')  # TODO: i dont sure if this is right callback pattern
 @auth_required(min_level=AccessLevel.USER)
 async def choose_model_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
@@ -158,6 +164,7 @@ async def choose_model_callback(update: Update, context: ContextTypes.DEFAULT_TY
     await update.callback_query.edit_message_text(strings.MSG_MODEL_CHOSEN.format(model_name))
 
 
+@bot.handler_for('state')
 @auth_required(min_level=AccessLevel.USER)
 async def state(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
@@ -169,6 +176,7 @@ async def state(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(strings.MSG_STATE.format(ExternalLanguageModel().stability_percentage))
 
 
+@bot.handler_for('user')
 @auth_required(min_level=AccessLevel.ADMIN)
 async def get_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
@@ -231,6 +239,7 @@ async def get_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                    reply_markup=keyboard)
 
 
+@bot.handler_for('delete_user')
 @auth_required(min_level=AccessLevel.ADMIN, verbose=False)
 @args_required(exact_arguments=2, error_message=strings.MSG_NO_USER_ID)
 async def delete_user(update: Update, args: list, query: CallbackQuery):
@@ -252,6 +261,7 @@ async def delete_user(update: Update, args: list, query: CallbackQuery):
     await query.edit_message_text(strings.MSG_USER_DELETED)
 
 
+@bot.callback_for('change_access_level')  # TODO: same as in callback handler above
 @auth_required(min_level=AccessLevel.ADMIN, verbose=False)
 async def change_access_level(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
@@ -294,6 +304,7 @@ async def change_access_level(update: Update, context: ContextTypes.DEFAULT_TYPE
                                   reply_markup=keyboard)
 
 
+@bot.callback_for('change_access_level_confirm')
 @auth_required(min_level=AccessLevel.ADMIN, verbose=False)
 async def change_access_level_confirm(update: Update,
                                       context: ContextTypes.DEFAULT_TYPE):
@@ -334,6 +345,7 @@ async def change_access_level_confirm(update: Update,
     await get_user(update, context)
 
 
+@bot.callback_for('forward_requests')
 @auth_required(min_level=AccessLevel.ADMIN, verbose=False)
 async def forward_requests(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
@@ -368,6 +380,7 @@ async def forward_requests(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.edit_message_text(strings.MSG_REQUESTS_FORWARDED)
 
 
+@bot.handler_for('help')
 async def help_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     Send a message when the command /help is issued.
@@ -376,6 +389,7 @@ async def help_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(strings.MSG_HELP)
 
 
+@bot.handler_for('reset')
 @auth_required(min_level=AccessLevel.USER)
 async def reset(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """

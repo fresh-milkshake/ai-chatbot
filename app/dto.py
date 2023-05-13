@@ -1,10 +1,26 @@
 from abc import ABC, abstractmethod
-from typing import Any, Optional, List
+from typing import Any, Optional
 
 
 class DictionarySerializable(ABC):
     """
-    Abstract class for converting objects to dictionaries.
+    This class provides a common interface for converting objects to dictionaries and
+    dictionaries to objects.
+
+    Args:
+        **kwargs: Additional keyword arguments to initialize object attributes.
+            The keyword arguments should correspond to the attribute names defined in
+            the class annotations (__annotations__).
+
+    Attributes:
+        __annotations__: A dictionary mapping attribute names to their types.
+            This attribute is automatically set by the Python interpreter.
+            Keys are fields defined in the class, values are their types.
+
+    Methods:
+        to_dict: Convert an object to a dictionary.
+        force_from_dict: Convert a dictionary to a message object.
+        from_dict: Convert a dictionary to a message object.
     """
 
     def __init__(self, **kwargs):
@@ -17,36 +33,44 @@ class DictionarySerializable(ABC):
     @abstractmethod
     def to_dict(self) -> dict[str, Any]:
         """
-        Convert object to a dictionary.
+        Convert an object to a dictionary.
 
         Returns:
-            The object as a dictionary.
+            Dictionary representation of the object with all its attributes.
         """
+
         raise NotImplementedError()
 
     @classmethod
     @abstractmethod
     def force_from_dict(cls, data: dict[str, Any]) -> Any:
         """
-        Convert a dictionary to a message object.
+        Convert a dictionary to an object of this class.
 
         Args:
             data: The dictionary to convert.
 
         Returns:
-            True if the conversion was fully successful, False otherwise.
+            An object of this class.
         """
+
         raise NotImplementedError()
 
     @classmethod
     @abstractmethod
     def from_dict(cls, data: dict[str, Any]) -> Optional[Any]:
         """
-        Convert a dictionary to a message object.
+        Convert a dictionary to an object of this class, but making strict checks for
+        the required fields.
 
         Args:
             data: The dictionary to convert.
+
+        Returns:
+            An object of this class or None if the dictionary does not contain all
+            the required fields.
         """
+
         raise NotImplementedError()
 
 
@@ -91,7 +115,7 @@ class ConversationHistory(DictionarySerializable):
     Class for containing history data and making operations on it.
 
     Attributes:
-        messages: A list of messages
+        messages: A list of Message objects representing the conversation history.
     """
 
     messages: list[Message]
@@ -156,6 +180,7 @@ class Model(DictionarySerializable):
     description: str = ''
     min_access_level: int
     is_active: bool = True
+    temperature: float = 1.0
 
     def to_dict(self) -> dict[str, Any]:
         return {

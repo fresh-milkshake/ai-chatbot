@@ -3,7 +3,7 @@ from functools import wraps
 from typing import Callable, Any
 
 from telegram import Update
-from telegram.ext import (CallbackQueryHandler, CommandHandler, CallbackContext, Application)
+from telegram.ext import (CallbackQueryHandler, CommandHandler, CallbackContext, Application, MessageHandler, filters)
 from telegram.ext import ApplicationBuilder
 
 from app.database.redis import RedisCache
@@ -151,15 +151,26 @@ class BotWrapper(Singleton):
             self.application.add_handler(CommandHandler(command, func))
 
             def wrapper(*args, **kwargs):
-                # Additional code to run before executing the function
-                print("Executing handler...")
-
-                # Call the original function
                 result = func(*args, **kwargs)
+                return result
 
-                # Additional code to run after executing the function
-                print("Handler executed.")
+            return wrapper
 
+        return decorator
+
+    def text_handler(self):
+        """
+        Decorator for registering message handlers in a container.
+
+        Returns:
+            A decorator function.
+        """
+
+        def decorator(func):
+            self.application.add_handler(MessageHandler(filters.TEXT, func))
+
+            def wrapper(*args, **kwargs):
+                result = func(*args, **kwargs)
                 return result
 
             return wrapper
@@ -179,7 +190,50 @@ class BotWrapper(Singleton):
 
         def decorator(func):
             self.application.add_handler(CallbackQueryHandler(func, pattern=pattern))
-            return func
+
+            def wrapper(*args, **kwargs):
+                result = func(*args, **kwargs)
+                return result
+
+            return wrapper
+
+        return decorator
+
+    def unknown_handler(self):
+        """
+        Decorator for registering unknown command handler in a container.
+
+        Returns:
+            A decorator function.
+        """
+
+        def decorator(func):
+            self.application.add_handler(MessageHandler(filters.COMMAND, func))
+
+            def wrapper(*args, **kwargs):
+                result = func(*args, **kwargs)
+                return result
+
+            return wrapper
+
+        return decorator
+
+    def error_handler(self):
+        """
+        Decorator for registering error handler in a container.
+
+        Returns:
+            A decorator function.
+        """
+
+        def decorator(func):
+            self.application.add_error_handler(func)
+
+            def wrapper(*args, **kwargs):
+                result = func(*args, **kwargs)
+                return result
+
+            return wrapper
 
         return decorator
 
@@ -188,7 +242,7 @@ class BotWrapper(Singleton):
         Infinitely blocking method for running bot in polling mode.
         """
 
-        logger.debug(f'Bot handlers: {[i.commands for i in sum(self.application.handlers.values(), [])]}')
+        logger.debug(f'Bot handlers: {[i.callback.__name__ for i in sum(self.application.handlers.values(), [])]}')
 
         self.application.run_polling()
 

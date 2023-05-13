@@ -1,5 +1,5 @@
-from . import RedisKeys, AccessLevel
-from app.model.config import AvailableModels
+from app.constants import RedisKeys, AccessLevel
+from app.constants.models import AvailableModels
 
 DEFAULT_ACCESS_LEVEL = AccessLevel.GUEST
 DEFAULT_CONVERSATION = []
@@ -10,3 +10,4 @@ DEFAULT_NEW_USER = {
     RedisKeys.User.CONVERSATION: DEFAULT_CONVERSATION,
     RedisKeys.User.LOCAL_MODEL: DEFAULT_MODEL.name,
 }
+
