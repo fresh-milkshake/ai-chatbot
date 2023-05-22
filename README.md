@@ -1,4 +1,5 @@
 ![ai-chatbot](images/Sprite-0003.png)
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Ffresh-milkshake%2Fai-chatbot.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2Ffresh-milkshake%2Fai-chatbot?ref=badge_shield)
 
 # ai-chatbot
 
@@ -28,3 +29,7 @@ python main.py
 ## Contributing
 
 Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
+
+
+## License
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Ffresh-milkshake%2Fai-chatbot.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2Ffresh-milkshake%2Fai-chatbot?ref=badge_large)
