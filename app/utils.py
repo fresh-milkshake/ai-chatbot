@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 
+from loguru import logger
 from telegram import Update
 
 
@@ -12,6 +13,8 @@ class Singleton(ABC):
 
     def __new__(cls, *args, **kwargs):
         if cls._instance is None:
+            logger.debug(f'Creating new instance of {cls.__name__} with args: {[type(i) for i in args]} and kwargs: '
+                         f'{[f"{k}={type(v)}" for k, v in kwargs.items()]}')
             cls._instance = super().__new__(cls)
 
         return cls._instance

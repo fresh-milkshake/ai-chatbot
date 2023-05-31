@@ -1,4 +1,5 @@
 import pathlib
+from app.constants.logging import LOGS_FILE_NAME_FORMAT
 
 ROOT_MODULE = 'app'
 
@@ -14,3 +15,10 @@ REPORTS_PATH = DATA_DIR / 'reports'
 
 CONFIG_FILE_NAME = 'config.ini'
 CONFIG_FILE_PATH = PROJECT_DIR / CONFIG_FILE_NAME
+
+LOGS_DIR_NAME = 'logs'
+LOGS_DIR = PROJECT_DIR / LOGS_DIR_NAME
+LOGS_DIR.mkdir(parents=True, exist_ok=True)
+
+LOG_FILE_NAME = f'{PROJECT_NAME}-{LOGS_FILE_NAME_FORMAT}.log'
+LOG_FILE_PATH = LOGS_DIR / LOG_FILE_NAME

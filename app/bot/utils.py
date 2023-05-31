@@ -1,6 +1,7 @@
 import inspect
+from enum import Enum
 from functools import wraps
-from typing import Callable, Any
+from typing import Callable, Any, Tuple, List, Optional
 
 from telegram import Update
 from telegram.ext import (CallbackQueryHandler, CommandHandler, CallbackContext, Application, MessageHandler, filters)
@@ -49,7 +50,7 @@ def auth_required(min_level=AccessLevel.GUEST, verbose=True, **kwargs: dict):
 
     Args:
         min_level: Minimum access level for calling specified function.
-        verbose: Whether to send information about fact that user needs higher access level.
+        verbose: Whether to send information about the fact that user needs higher access level.
         kwargs: Keyword arguments to pass to the decorator.
 
     Returns:
@@ -84,11 +85,11 @@ def auth_required(min_level=AccessLevel.GUEST, verbose=True, **kwargs: dict):
 
 def args_required(min_arguments=None, exact_arguments=None, error_message=None):
     """
-    Decorator for ensuring if function arguments will match defined conditions or not.
+    Decorator for ensuring if function arguments match defined conditions or not.
 
     Args:
         min_arguments: Minimum required arguments count.
-        exact_arguments: Exact arguments count, will override min_arguments if set to anything else than 0.
+        exact_arguments: Exact arguments count will override min_arguments if set to anything else than 0.
         error_message: Error message that will be shown when arguments count comparison encounters a failure.
 
     Returns:
@@ -122,12 +123,24 @@ def args_required(min_arguments=None, exact_arguments=None, error_message=None):
     return decorator
 
 
+class HandlerType(Enum):
+    """
+    Enum for handler types.
+    """
+
+    COMMAND = 1
+    TEXT = 2
+    CALLBACK = 3
+    ERROR = 4
+    UNKNOWN = 5
+
+
 class BotWrapper(Singleton):
     """
     Wrapper around telegram.ext.ApplicationBuilder for easier bot creation.
 
     Attributes:
-        application: ApplicationBuilder instance.
+        application: Application instance.
     """
 
     application: Application = None
@@ -135,6 +148,7 @@ class BotWrapper(Singleton):
     def __init__(self, token: str = None):
         if token and not self.application:
             self.application = ApplicationBuilder().token(token).build()
+            self.handlers: List[Tuple[HandlerType, Optional[str], Callable]] = []
 
     def handler_for(self, command: str):
         """
@@ -148,7 +162,7 @@ class BotWrapper(Singleton):
         """
 
         def decorator(func):
-            self.application.add_handler(CommandHandler(command, func))
+            self.handlers.append((HandlerType.COMMAND, command, func,))
 
             def wrapper(*args, **kwargs):
                 result = func(*args, **kwargs)
@@ -167,7 +181,7 @@ class BotWrapper(Singleton):
         """
 
         def decorator(func):
-            self.application.add_handler(MessageHandler(filters.TEXT, func))
+            self.handlers.append((HandlerType.TEXT, None, func,))
 
             def wrapper(*args, **kwargs):
                 result = func(*args, **kwargs)
@@ -189,7 +203,7 @@ class BotWrapper(Singleton):
         """
 
         def decorator(func):
-            self.application.add_handler(CallbackQueryHandler(func, pattern=pattern))
+            self.handlers.append((HandlerType.CALLBACK, pattern, func,))
 
             def wrapper(*args, **kwargs):
                 result = func(*args, **kwargs)
@@ -208,7 +222,7 @@ class BotWrapper(Singleton):
         """
 
         def decorator(func):
-            self.application.add_handler(MessageHandler(filters.COMMAND, func))
+            self.handlers.append((HandlerType.UNKNOWN, None, func,))
 
             def wrapper(*args, **kwargs):
                 result = func(*args, **kwargs)
@@ -227,7 +241,7 @@ class BotWrapper(Singleton):
         """
 
         def decorator(func):
-            self.application.add_error_handler(func)
+            self.handlers.append((HandlerType.ERROR, None, func,))
 
             def wrapper(*args, **kwargs):
                 result = func(*args, **kwargs)
@@ -240,9 +254,30 @@ class BotWrapper(Singleton):
     def run(self):
         """
         Infinitely blocking method for running bot in polling mode.
+
+        Before running, all handlers are registered in application by iterating over a `handlers` container
+        and matching their type with corresponding telegram.ext.Handler class and telegram.ext.Application
+        method for registering handler.
         """
 
-        logger.debug(f'Bot handlers: {[i.callback.__name__ for i in sum(self.application.handlers.values(), [])]}')
+        for handler_type, context, handler in self.handlers:
+            match handler_type:
+                case HandlerType.COMMAND:
+                    self.application.add_handler(CommandHandler(context, handler))
+                case HandlerType.TEXT:
+                    self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handler))
+                case HandlerType.CALLBACK:
+                    self.application.add_handler(CallbackQueryHandler(handler, pattern=context))
+                case HandlerType.ERROR:
+                    self.application.add_error_handler(handler)
+                case HandlerType.UNKNOWN:
+                    self.application.add_handler(MessageHandler(filters.COMMAND, handler))
+                case _:
+                    logger.error(f'Unknown type "{handler_type}" for handler "{handler}" with context "{context}"')
+
+            logger.debug(f'Registered {handler_type}:{handler.__name__}')
+
+        logger.debug(f'Registered handlers: {len(self.application.handlers[0])}')
 
         self.application.run_polling()
 

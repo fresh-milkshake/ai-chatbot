@@ -30,7 +30,7 @@ def crud_request(func):
             logger.error('REDIS: Connection error')
             return None
         except Exception as e:
-            logger.exception(f'REDIS: Unknown error: {e}')
+            logger.error(f'REDIS: Unknown error: {e}')
             return None
 
     return error_handler
@@ -39,10 +39,10 @@ def crud_request(func):
 # TODO: test and look after this class after migration from custom Singleton implementation to Singleton inheritance from app.utils
 class RedisCache(Singleton):
     """
-    Singleton class for interacting with Redis Caching database.
+    Singleton class for interacting with a Redis Caching database.
 
     Attributes:
-        redis_client: :class:`redis.Redis` instance for interacting with Redis database.
+        redis_client: :class:`redis.Redis` instance for interacting with a Redis database.
 
     See Also:
         :func:`app.database.redis.crud_request` for handling Redis connection errors.
@@ -66,6 +66,7 @@ class RedisCache(Singleton):
     def __init__(self):
         if self.redis_client is None:
             logger.info('Creating new RedisCache instance')
+            logger.debug(f'Connecting to Redis at {REDIS_HOST}:{REDIS_PORT} with password {REDIS_PASSWORD}')
             self.redis_client = redis.Redis(host=REDIS_HOST,
                                             port=REDIS_PORT,
                                             db=REDIS_DB_INDEX,

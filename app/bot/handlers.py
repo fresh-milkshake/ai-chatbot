@@ -17,7 +17,6 @@ from app.model import ExternalLanguageModel
 from app.startup import TELEGRAM_TOKEN
 from app.utils import get_user_string
 
-
 bot = BotWrapper(TELEGRAM_TOKEN)
 
 
@@ -73,12 +72,9 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     Handle text messages and use the OpenAI API to generate a response.
     """
 
-    logger.info(
-        f'Received message from {get_user_string(update)}: {update.message.text}'
-    )
+    logger.info(f'Received message from {get_user_string(update)}: {update.message.text}')
 
-    placeholder_message = await update.message.reply_text(
-        strings.MSG_WAITING_FOR_RESPONSE)
+    placeholder_message = await update.message.reply_text(strings.MSG_WAITING_FOR_RESPONSE)
 
     user = RedisCache().get_user_by_update(update)
 
@@ -110,7 +106,7 @@ async def get_users(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     users = [
-        f"{user.get('first_name')} {user.get('last_name') if user.get('last_name') else '---'} \"{user.get('username')}\" (ID{user.get('id')})"
+        f"{user.get('first_name')} {user.get('last_name', '---')} \"{user.get('username', '')}\" (ID{user.get('id')})"
         for user in users.values()
     ]
     users = '\n'.join(users)
@@ -129,15 +125,63 @@ async def choose_model(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     user = RedisCache().get_user_by_update(update)
 
-    keyboard = []
-    for model in AvailableModels.ALL:
-        if user.get(RedisKeys.User.ACCESS_LEVEL, DEFAULT_ACCESS_LEVEL) >= model.min_access_level:
-            keyboard.append([InlineKeyboardButton(model.name, callback_data=f'choose_model:{model.name}')])
+    keyboard = [
+        [
+            InlineKeyboardButton(
+                model.name,
+                callback_data=f'choose_model:{model.name}',
+            )
+        ]
+        for model in AvailableModels.filter_by_access_level(user.get(RedisKeys.User.ACCESS_LEVEL, DEFAULT_ACCESS_LEVEL))
+    ]
+    keyboard.append(
+        [
+            InlineKeyboardButton(
+                strings.BTN_CANCEL,
+                callback_data='cancel',
+            )
+        ]
+    )
+    reply_markup = InlineKeyboardMarkup(keyboard)
 
-    keyboard = InlineKeyboardMarkup(keyboard)
+    await update.message.reply_text(strings.MSG_CHOOSE_MODEL, reply_markup=reply_markup)
 
-    await update.message.reply_text(strings.MSG_CHOOSE_MODEL, reply_markup=keyboard)
 
+@bot.callback_for('cancel')
+@auth_required(min_level=AccessLevel.USER)
+async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Handle the cancel button.
+    """
+
+    logger.debug(f'User {get_user_string(update)} used cancel button')
+
+    await update.callback_query.answer()
+    await update.callback_query.message.edit_text(strings.MSG_CANCELLED)
+
+
+@bot.handler_for('users')
+@auth_required(min_level=AccessLevel.ADMIN)
+async def get_users(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Handle the /users command.
+    """
+
+    logger.debug(f'User {get_user_string(update)} used /users command')
+
+    users = RedisCache().get_users()
+
+    if not users:
+        await update.message.reply_text(strings.MSG_NO_USERS)
+        return
+
+    users = [
+        f"{user.get('first_name')} {user.get('last_name') if user.get('last_name') else '---'} \"{user.get('username')}\" (ID{user.get('id')})"
+        for user in users.values()
+    ]
+    users = '\n'.join(users)
+
+    await update.message.reply_text(users)
 
 @bot.callback_for('choose_model')  # TODO: i dont sure if this is right callback pattern
 @auth_required(min_level=AccessLevel.USER)

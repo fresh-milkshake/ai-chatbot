@@ -1,19 +1,15 @@
 from app.constants import AccessLevel
 from app.dto import Model
 
-DEFAULT_TEMPERATURE = 0.7
+DEFAULT_TEMPERATURE = 1  # 0 - 2
 DEFAULT_MIN_ACCESS_LEVEL = AccessLevel.USER
 
 
 class AvailableModels:
-    # GPT3_5_TURBO = 'gpt-3.5-turbo'
-    # GPT4 = 'gpt-4'
-    # GPT4_32K = 'gpt-4-32k'
-    #
-    # TEXT_DAVINCI_003 = 'text-davinci-003'
-    # CODE_DAVINCI_002 = 'code-davinci-002'
-    #
-    # ALL = [GPT3_5_TURBO, GPT4, GPT4_32K, TEXT_DAVINCI_003, CODE_DAVINCI_002]
+    """
+    Available models container.
+    Models are stored as :class:`app.dto.Model` objects.
+    """
 
     GPT3_5_TURBO = Model(
         name='gpt-3.5-turbo',
@@ -26,4 +22,20 @@ class AvailableModels:
         name='gpt-4',
         min_access_level=AccessLevel.USER,
         temperature=DEFAULT_TEMPERATURE,
+        is_active=True,
     )
+
+    ALL = [GPT3_5_TURBO, GPT4]
+
+    @staticmethod
+    def filter_by_access_level(access_level: AccessLevel):
+        """
+        Filter available models by access level.
+
+        Args:
+            access_level: Access level to filter by.
+
+        Returns:
+            Filtered list of models.
+        """
+        return list(filter(lambda model: model.min_access_level <= access_level, AvailableModels.ALL))

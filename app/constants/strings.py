@@ -65,3 +65,5 @@ MSG_REPORT_CREATED = 'Отчет о диалогах успешно создан
 # Bot state message
 MSG_STATE = 'Стабильность работы в данный момент: {0:.2f}%'
 
+BTN_CANCEL = 'Отмена'
+MSG_CANCELLED = 'Операция отменена.'

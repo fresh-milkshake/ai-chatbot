@@ -1,5 +1,7 @@
 from . import strings
 from . import openai_models
+from . import paths
+from . import logging
 
 
 class AccessLevel:
@@ -119,7 +121,7 @@ class AccessLevel:
 
 class RedisKeys:
     """
-    Redis database keys in form of a nested classes with attributes as keys.
+    Redis database keys in the form of nested classes with attributes as keys.
 
     Nested classes are used to group keys by their purpose or by shared parent key.
     For example, all keys related to `users` key are grouped in User class.

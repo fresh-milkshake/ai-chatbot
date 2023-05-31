@@ -187,7 +187,8 @@ class Model(DictionarySerializable):
             'name': self.name,
             'description': self.description,
             'min_access_level': self.min_access_level,
-            'is_active': self.is_active
+            'is_active': self.is_active,
+            'temperature': self.temperature
         }
 
     @classmethod
@@ -196,7 +197,8 @@ class Model(DictionarySerializable):
             name=data.get('name', ''),
             description=data.get('description', ''),
             min_access_level=data.get('min_access_level', 0),
-            is_active=data.get('is_active', True)
+            is_active=data.get('is_active', True),
+            temperature=data.get('temperature', 1.0)
         )
 
     @classmethod
@@ -208,7 +210,8 @@ class Model(DictionarySerializable):
             name=data['name'],
             description=data['description'],
             min_access_level=data['min_access_level'],
-            is_active=data['is_active']
+            is_active=data['is_active'],
+            temperature=data['temperature']
         )
 
 
@@ -293,7 +296,13 @@ if __name__ == '__main__':
             Message(role='assistant', content='Hi'),
             Message(role='system', content='How are you?')
         ]),
-        model=Model(name='MyModel', description='This is a model', min_access_level=2, is_active=True)
+        model=Model(
+            name='MyModel',
+            description='This is a model',
+            min_access_level=2,
+            is_active=True,
+            temperature=1.0
+        )
     )
 
     assert type(user.to_dict()) == dict

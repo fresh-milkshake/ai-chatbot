@@ -5,14 +5,16 @@ from loguru import logger
 
 from app.dto import User
 from app.database.redis import RedisCache
-from experiments.config import GLOBAL_DEFAULT_MODEL, OPENAI_API_KEY, REDIS_USER_LOCAL_MODEL
-from experiments.config import (
+from app.startup import OPENAI_TOKEN
+from app.constants.strings import (
     MSG_ERROR_MODEL_API_ERROR,
     MSG_ERROR_MODEL_OPENAI_ERROR,
 )
+from app.constants.defaults import DEFAULT_MODEL
+from app.constants import RedisKeys
 
 logger.info('Defining OpenAI API key')
-openai.api_key = OPENAI_API_KEY
+openai.api_key = OPENAI_TOKEN
 
 
 class ExternalLanguageModel:
@@ -20,9 +22,9 @@ class ExternalLanguageModel:
     A class that encapsulates the OpenAI language model and provides an interface to use it.
 
     Attributes:
-        errors (list): A list of errors that occurred while using the OpenAI API.
-        success_count (int): The number of successful API calls made.
-        total_count (int): The total number of API calls made.
+        responses_errors (list): A list of errors that occurred while using the OpenAI API.
+        responses_successes_count (int): The number of successful API calls made.
+        responses_total_count (int): The total number of API calls made.
     """
 
     _instance = None
@@ -37,12 +39,12 @@ class ExternalLanguageModel:
         if cls._instance is None:
             logger.info('Creating new LanguageModel instance')
             cls._instance = super(ExternalLanguageModel, cls).__new__(cls)
-            cls.errors = []
-            cls.success_count = 0
-            cls.total_count = 0
+            cls.responses_errors = []
+            cls.responses_successes_count = 0
+            cls.responses_total_count = 0
         return cls._instance
 
-    async def handle_model_error(self, error: openai.OpenAIError) -> None:
+    async def handle_model_error(self, error: openai.OpenAIError | Exception) -> None:
         """
         Handle an error that occurred while using the OpenAI API.
 
@@ -51,9 +53,16 @@ class ExternalLanguageModel:
         """
         error_message = str(error)
         error_info = {'type': type(error).__name__, 'message': error_message}
-        logger.error(f'OpenAI API error: {error_message}...', error_info=error_info)
-        self.errors.append({'error': error_message, 'type': type(error).__name__, 'timestamp': datetime.now()})
-        self.total_count += 1
+        if isinstance(error, openai.OpenAIError):
+            logger.error(f'OpenAI API error: {error_message}...', error_info=error_info)
+            self.responses_errors.append(
+                {'error': error_message, 'type': type(error).__name__, 'timestamp': datetime.now()})
+            self.responses_total_count += 1
+        elif isinstance(error, Exception):
+            logger.error(f'Unknown error: {error_message}...', error_info=error_info)
+            self.responses_errors.append(
+                {'error': error_message, 'type': type(error).__name__, 'timestamp': datetime.now()})
+            self.responses_total_count += 1
 
     async def create_answer(self, message: str, user: dict | User) -> str:
         """
@@ -77,8 +86,8 @@ class ExternalLanguageModel:
         answer = ''
 
         try:
-            logger.info(f'Calling OpenAI API "{user.get(REDIS_USER_LOCAL_MODEL, "UNKNOW")}" model')
-            response = openai.ChatCompletion.create(model=user.get(REDIS_USER_LOCAL_MODEL, GLOBAL_DEFAULT_MODEL.name),
+            logger.info(f'Calling OpenAI API "{user.get(RedisKeys.User.LOCAL_MODEL, "UNKNOWN")}" model')
+            response = openai.ChatCompletion.create(model=user.get(RedisKeys.User.LOCAL_MODEL, DEFAULT_MODEL.name),
                                                     messages=messages)
             choice = response.get('choices')[0]
             answer = choice.get('message').get('content')
@@ -98,7 +107,7 @@ class ExternalLanguageModel:
 
         else:
             error_message = None
-            self.success_count += 1
+            self.responses_successes_count += 1
 
         if error_message is not None:
             error_info = {
@@ -110,9 +119,9 @@ class ExternalLanguageModel:
                 'timestamp': datetime.now()
             }
             logger.error(error_message, error_info=error_info)
-            self.errors.append(
+            self.responses_errors.append(
                 {'error': error_message, 'user_id': user.get('id'), 'message': message, 'timestamp': datetime.now()})
-            self.total_count += 1
+            self.responses_total_count += 1
 
             return error_message + f'\n\nУровень стабильности: {self.stability_percentage:.2f}%'
 
@@ -136,7 +145,7 @@ class ExternalLanguageModel:
             The percentage of stable operation, as a float between 0.0 and 100.0.
         """
 
-        if self.total_count == 0:
+        if self.responses_total_count == 0:
             return 100.0
 
-        return 100.0 * self.success_count / self.total_count
+        return (self.responses_successes_count / self.responses_total_count) * 100.0
