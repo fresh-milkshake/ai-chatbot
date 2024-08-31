@@ -21,7 +21,7 @@ ehthumbs.db
 # Sensetive data
 .env
 data
-config.ini
+config.toml
 
 # Logs
 logs
@@ -33,3 +33,4 @@ Thumbs.db
 /installation
 /utils
 /experiments/config
+database.db
