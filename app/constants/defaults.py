@@ -1,4 +1,4 @@
-from app.constants import RedisKeys, AccessLevel
+from app.constants import DatabaseKeys, AccessLevel
 from app.constants.models import (
     AvailableModels,
     DEFAULT_MIN_ACCESS_LEVEL,
@@ -7,12 +7,14 @@ from app.constants.models import (
 
 DEFAULT_ACCESS_LEVEL = AccessLevel.GUEST
 DEFAULT_CONVERSATION = []
-DEFAULT_MODEL = AvailableModels.GPT3_5_TURBO
+DEFAULT_MODEL = AvailableModels.GPT4FREE
 DEFAULT_MIN_ACCESS_LEVEL = DEFAULT_MIN_ACCESS_LEVEL
 DEFAULT_TEMPERATURE = DEFAULT_TEMPERATURE
 
 DEFAULT_NEW_USER = {
-    RedisKeys.User.ACCESS_LEVEL: DEFAULT_ACCESS_LEVEL,
-    RedisKeys.User.CONVERSATION: DEFAULT_CONVERSATION,
-    RedisKeys.User.LOCAL_MODEL: DEFAULT_MODEL.name,
+    DatabaseKeys.User.ACCESS_LEVEL: DEFAULT_ACCESS_LEVEL,
+    DatabaseKeys.User.CONVERSATION: DEFAULT_CONVERSATION,
+    DatabaseKeys.User.CHOSEN_MODEL: DEFAULT_MODEL.name,
 }
+
+RATE_LIMIT_PAUSE = 2

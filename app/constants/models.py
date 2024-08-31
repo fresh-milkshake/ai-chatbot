@@ -12,20 +12,34 @@ class AvailableModels:
     """
 
     GPT3_5_TURBO = Model(
-        name='gpt-3.5-turbo',
+        name="gpt-3.5-turbo",
         min_access_level=DEFAULT_MIN_ACCESS_LEVEL,
         temperature=DEFAULT_TEMPERATURE,
         is_active=True,
     )
 
     GPT4 = Model(
-        name='gpt-4',
+        name="gpt-4",
         min_access_level=AccessLevel.USER,
         temperature=DEFAULT_TEMPERATURE,
         is_active=True,
     )
 
-    ALL = [GPT3_5_TURBO, GPT4]
+    LATEST_LLAMA = Model(
+        name="llama-2-7b-chat",
+        min_access_level=AccessLevel.USER,
+        temperature=DEFAULT_TEMPERATURE,
+        is_active=True,
+    )
+    
+    GPT4FREE = Model(
+        name="gpt4free",
+        min_access_level=AccessLevel.USER,
+        temperature=DEFAULT_TEMPERATURE,
+        is_active=True,
+    )
+
+    ALL = [GPT3_5_TURBO, GPT4, LATEST_LLAMA]
 
     @staticmethod
     def filter_by_access_level(access_level: AccessLevel):
@@ -38,4 +52,9 @@ class AvailableModels:
         Returns:
             Filtered list of models.
         """
-        return list(filter(lambda model: model.min_access_level <= access_level, AvailableModels.ALL))
+        return list(
+            filter(
+                lambda model: model.min_access_level <= access_level,
+                AvailableModels.ALL,
+            )
+        )

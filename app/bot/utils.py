@@ -4,27 +4,34 @@ from functools import wraps
 from typing import Callable, Any, Tuple, List, Optional
 
 from telegram import Update
-from telegram.ext import (CallbackQueryHandler, CommandHandler, CallbackContext, Application, MessageHandler, filters)
-from telegram.ext import ApplicationBuilder
+from telegram.ext import (
+    CallbackQueryHandler,
+    CommandHandler,
+    CallbackContext,
+    Application,
+    MessageHandler,
+    filters,
+)
+from telegram.ext import ApplicationBuilder, ContextTypes
 
-from app.database.redis import RedisCache
+from app.database import Database
 from app.utils import Singleton
 
 from app.startup import MAINTENANCE_MODE
 from app.constants.defaults import DEFAULT_ACCESS_LEVEL
-from app.constants import AccessLevel, RedisKeys
+from app.constants import AccessLevel, DatabaseKeys
 from app.constants.strings import (
     MSG_STATE_MAINTENANCE,
     MSG_ERROR_UNKNOWN,
     MSG_NEED_HIGHER_ACCESS_LEVEL,
     MSG_ERROR_EXPECTED_ARGS,
-    MSG_ERROR_EXPECTED_AT_LEAST_ARGS
+    MSG_ERROR_EXPECTED_AT_LEAST_ARGS,
 )
 
 from loguru import logger
 
 
-async def independent_call(func, *args, **kwargs) -> Any:
+async def async_independent_call(func, *args, **kwargs) -> Any:
     """
     Wrapper around logic of running function async-/synchronously depending
     on target function type - telegram handler or business logic.
@@ -59,24 +66,30 @@ def auth_required(min_level=AccessLevel.GUEST, verbose=True, **kwargs: dict):
 
     def decorator(func: Callable):
         @wraps(func)
-        async def wrapper(update, context):
-            user = RedisCache().get_user_by_update(update)
+        async def wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE):
+            user = Database().get_user_by_update(update).data
             if not user:
                 if verbose:
                     await update.message.reply_text(MSG_ERROR_UNKNOWN)
                 return
 
             if MAINTENANCE_MODE:
-                if user.get(RedisKeys.User.ACCESS_LEVEL, DEFAULT_ACCESS_LEVEL) < AccessLevel.ADMIN:
+                if (
+                    user.get(DatabaseKeys.User.ACCESS_LEVEL, DEFAULT_ACCESS_LEVEL)
+                    < AccessLevel.ADMIN
+                ):
                     await update.message.reply_text(MSG_STATE_MAINTENANCE)
                     return
 
-            if user.get(RedisKeys.User.ACCESS_LEVEL, DEFAULT_ACCESS_LEVEL) < min_level:
+            if (
+                user.get(DatabaseKeys.User.ACCESS_LEVEL, DEFAULT_ACCESS_LEVEL)
+                < min_level
+            ):
                 if verbose:
                     await update.message.reply_text(MSG_NEED_HIGHER_ACCESS_LEVEL)
                 return
 
-            await independent_call(func, update, context)
+            await async_independent_call(func, update, context)
 
         return wrapper
 
@@ -103,19 +116,31 @@ def args_required(min_arguments=None, exact_arguments=None, error_message=None):
             if query:
                 await query.answer()
                 callback_args = query.data.split(":")
-                if exact_arguments is not None and len(callback_args) != exact_arguments:
-                    await query.edit_message_text(error_message or MSG_ERROR_EXPECTED_ARGS.format(exact_arguments))
+                if (
+                    exact_arguments is not None
+                    and len(callback_args) != exact_arguments
+                ):
+                    await query.edit_message_text(
+                        error_message or MSG_ERROR_EXPECTED_ARGS.format(exact_arguments)
+                    )
                     return
                 if min_arguments is not None and len(callback_args) < min_arguments:
                     await query.edit_message_text(
-                        error_message or MSG_ERROR_EXPECTED_AT_LEAST_ARGS.format(min_arguments))
+                        error_message
+                        or MSG_ERROR_EXPECTED_AT_LEAST_ARGS.format(min_arguments)
+                    )
                     return
                 return await func(update, context, *callback_args, **kwargs)
             else:
                 if exact_arguments is not None and len(args) != exact_arguments:
-                    raise ValueError(error_message or MSG_ERROR_EXPECTED_ARGS.format(exact_arguments))
+                    raise ValueError(
+                        error_message or MSG_ERROR_EXPECTED_ARGS.format(exact_arguments)
+                    )
                 if min_arguments is not None and len(args) < min_arguments:
-                    raise ValueError(error_message or MSG_ERROR_EXPECTED_AT_LEAST_ARGS.format(min_arguments))
+                    raise ValueError(
+                        error_message
+                        or MSG_ERROR_EXPECTED_AT_LEAST_ARGS.format(min_arguments)
+                    )
                 return await func(update, context, *args, **kwargs)
 
         return wrapper
@@ -162,7 +187,13 @@ class BotWrapper(Singleton):
         """
 
         def decorator(func):
-            self.handlers.append((HandlerType.COMMAND, command, func,))
+            self.handlers.append(
+                (
+                    HandlerType.COMMAND,
+                    command,
+                    func,
+                )
+            )
 
             def wrapper(*args, **kwargs):
                 result = func(*args, **kwargs)
@@ -181,7 +212,13 @@ class BotWrapper(Singleton):
         """
 
         def decorator(func):
-            self.handlers.append((HandlerType.TEXT, None, func,))
+            self.handlers.append(
+                (
+                    HandlerType.TEXT,
+                    None,
+                    func,
+                )
+            )
 
             def wrapper(*args, **kwargs):
                 result = func(*args, **kwargs)
@@ -203,7 +240,13 @@ class BotWrapper(Singleton):
         """
 
         def decorator(func):
-            self.handlers.append((HandlerType.CALLBACK, pattern, func,))
+            self.handlers.append(
+                (
+                    HandlerType.CALLBACK,
+                    pattern,
+                    func,
+                )
+            )
 
             def wrapper(*args, **kwargs):
                 result = func(*args, **kwargs)
@@ -213,7 +256,7 @@ class BotWrapper(Singleton):
 
         return decorator
 
-    def unknown_handler(self):
+    def unknown_command_handler(self):
         """
         Decorator for registering unknown command handler in a container.
 
@@ -222,7 +265,13 @@ class BotWrapper(Singleton):
         """
 
         def decorator(func):
-            self.handlers.append((HandlerType.UNKNOWN, None, func,))
+            self.handlers.append(
+                (
+                    HandlerType.UNKNOWN,
+                    None,
+                    func,
+                )
+            )
 
             def wrapper(*args, **kwargs):
                 result = func(*args, **kwargs)
@@ -241,7 +290,13 @@ class BotWrapper(Singleton):
         """
 
         def decorator(func):
-            self.handlers.append((HandlerType.ERROR, None, func,))
+            self.handlers.append(
+                (
+                    HandlerType.ERROR,
+                    None,
+                    func,
+                )
+            )
 
             def wrapper(*args, **kwargs):
                 result = func(*args, **kwargs)
@@ -265,19 +320,27 @@ class BotWrapper(Singleton):
                 case HandlerType.COMMAND:
                     self.application.add_handler(CommandHandler(context, handler))
                 case HandlerType.TEXT:
-                    self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handler))
+                    self.application.add_handler(
+                        MessageHandler(filters.TEXT & ~filters.COMMAND, handler)
+                    )
                 case HandlerType.CALLBACK:
-                    self.application.add_handler(CallbackQueryHandler(handler, pattern=context))
+                    self.application.add_handler(
+                        CallbackQueryHandler(handler, pattern=context)
+                    )
                 case HandlerType.ERROR:
                     self.application.add_error_handler(handler)
                 case HandlerType.UNKNOWN:
-                    self.application.add_handler(MessageHandler(filters.COMMAND, handler))
+                    self.application.add_handler(
+                        MessageHandler(filters.COMMAND, handler)
+                    )
                 case _:
-                    logger.error(f'Unknown type "{handler_type}" for handler "{handler}" with context "{context}"')
+                    logger.error(
+                        f'Unknown type "{handler_type}" for handler "{handler}" with context "{context}"'
+                    )
 
-            logger.debug(f'Registered {handler_type}:{handler.__name__}')
+            logger.debug(f"Registered {handler_type}:{handler.__name__}")
 
-        logger.debug(f'Registered handlers: {len(self.application.handlers[0])}')
+        logger.debug(f"Registered handlers: {len(self.application.handlers[0])}")
 
         self.application.run_polling()
 

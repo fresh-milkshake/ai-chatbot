@@ -119,7 +119,7 @@ class AccessLevel:
         raise ValueError(f'Invalid access level string: {access_level}')
 
 
-class RedisKeys:
+class DatabaseKeys:
     """
     Redis database keys in the form of nested classes with attributes as keys.
 
@@ -148,7 +148,7 @@ class RedisKeys:
         CONVERSATION = 'conversation'
         UNIQUE_ID = 'unique_id'
         LANGUAGE_CODE = 'language_code'
-        LOCAL_MODEL = 'local_model'
+        CHOSEN_MODEL = 'local_model'
 
     class Bot:
         """

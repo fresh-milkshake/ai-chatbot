@@ -4,20 +4,20 @@ import openai
 import tiktoken
 from loguru import logger
 
-from app.dto import User
-from app.database.redis import RedisCache
-from app.startup import OPENAI_TOKEN
+from app.constants import DatabaseKeys
+from app.constants.defaults import DEFAULT_MODEL
 from app.constants.strings import (
     MSG_ERROR_MODEL_API_ERROR,
     MSG_ERROR_MODEL_OPENAI_ERROR,
 )
-from app.constants.defaults import DEFAULT_MODEL
-from app.constants import RedisKeys
-from app.utils import Singleton
+from app.database import Database
+from app.dto import User
+from app.model.abstraction import ChatProvider
+from app.startup import OPENAI_TOKEN
 
-logger.info('Defining OpenAI API key')
+logger.info("Defining OpenAI API key")
 openai.api_key = OPENAI_TOKEN
-Tokenizer = tiktoken.get_encoding('cl100k_base')
+Tokenizer = tiktoken.get_encoding("cl100k_base")
 
 
 def get_tokens_count(text: str) -> int:
@@ -47,11 +47,11 @@ async def calculate_conversion_tokens(user: dict | User) -> int:
     if isinstance(user, User):
         user = user.to_dict()
 
-    conversation = user.get('conversation', [])
+    conversation = user.get("conversation", [])
     tokens = 0
 
     for message in conversation:
-        tokens += get_tokens_count(message.get('content'))
+        tokens += get_tokens_count(message.get("content"))
 
     return tokens
 
@@ -64,7 +64,11 @@ async def handle_model_error(error: openai.OpenAIError | Exception) -> str:
         error: The OpenAI error to handle.
     """
     error_message = str(error)
-    error_info = {'error': error_message, 'type': type(error).__name__, 'timestamp': datetime.now()}
+    error_info = {
+        "error": error_message,
+        "type": type(error).__name__,
+        "timestamp": datetime.now(),
+    }
     logger.error(error_info)
 
     match type(error):
@@ -84,9 +88,9 @@ async def handle_model_error(error: openai.OpenAIError | Exception) -> str:
             return MSG_ERROR_MODEL_OPENAI_ERROR.format(error_message)
 
 
-class LanguageModel(Singleton):
+class OpenAIModels(ChatProvider):
     """
-    A class that encapsulates the OpenAI language model and provides an interface to use it.
+    A class that encapsulates the OpenAI language models and provides an interface to use it.
 
     Attributes:
 
@@ -124,19 +128,23 @@ class LanguageModel(Singleton):
 
         error_message = None
         response = None
-        answer = ''
+        answer = ""
 
-        new_message = {'role': 'user', 'content': message}
-        previous_conversation = user.get('conversation', [])
+        new_message = {"role": "user", "content": message}
+        previous_conversation = user.get("conversation", [])
         messages = [*previous_conversation, new_message]
 
         try:
-            logger.info(f'Calling OpenAI API "{user.get(RedisKeys.User.LOCAL_MODEL, "UNKNOWN")}" model')
+            logger.info(
+                f'Calling OpenAI API "{user.get(DatabaseKeys.User.CHOSEN_MODEL, "UNKNOWN")}" model'
+            )
             self.total_responses_count += 1
-            response = openai.ChatCompletion.create(model=user.get(RedisKeys.User.LOCAL_MODEL, DEFAULT_MODEL.name),
-                                                    messages=messages)
-            choice = response.get('choices')[0]
-            answer = choice.get('message').get('content')
+            response = openai.ChatCompletion.create(
+                model=user.get(DatabaseKeys.User.CHOSEN_MODEL, DEFAULT_MODEL.name),
+                messages=messages,
+            )
+            choice = response.get("choices")[0]
+            answer = choice.get("message").get("content")
             answer = answer.strip()
         except Exception as error:
             error_message = await handle_model_error(error)
@@ -147,37 +155,28 @@ class LanguageModel(Singleton):
 
         if error_message is not None:
             error_info = {
-                'user_id': user.get('id'),
-                'message': message,
-                'previous_conversation': previous_conversation,
-                'response': response.to_dict() if response else None,
-                'error_message': error_message,
-                'timestamp': datetime.now()
+                "user_id": user.get("id"),
+                "message": message,
+                "previous_conversation": previous_conversation,
+                "response": response.to_dict() if response else None,
+                "error_message": error_message,
+                "timestamp": datetime.now(),
             }
             logger.error(error_message, error_info=error_info)
 
-            return error_message + f'\n\nУровень стабильности: {self.stability_percentage:.2f}%'
+            return (
+                error_message
+                + f"\n\nУровень стабильности: {self.stability_percentage:.2f}%"
+            )
 
-        user['conversation'] = [
-            *messages, {
-                'role': 'assistant',
-                'content': answer
-            }
-        ]
+        user["conversation"] = [*messages, {"role": "assistant", "content": answer}]
 
-        RedisCache().update_user_by_id(user)
+        Database().update_user_by_id(user)
 
         return answer
 
     @property
     def stability_percentage(self) -> float:
-        """
-        Calculate the percentage of stable operation.
-
-        Returns:
-            The percentage of stable operation, as a float between 0.0 and 100.0.
-        """
-
         if self.total_responses_count == 0:
             return 100.0
 
