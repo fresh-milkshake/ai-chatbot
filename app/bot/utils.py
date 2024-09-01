@@ -17,7 +17,7 @@ from telegram.ext import ApplicationBuilder, ContextTypes
 from app.database import Database
 from app.utils import Singleton
 
-from app.startup import MAINTENANCE_MODE
+from app.startup import DEFAULT_MIN_ACCESS_LEVEL, MAINTENANCE_MODE
 from app.constants.defaults import DEFAULT_ACCESS_LEVEL
 from app.constants import AccessLevel, DatabaseKeys
 from app.constants.strings import (
@@ -51,7 +51,7 @@ async def async_independent_call(func, *args, **kwargs) -> Any:
         return func(*args, **kwargs)
 
 
-def auth_required(min_level=AccessLevel.GUEST, verbose=True, **kwargs: dict):
+def auth_required(min_level=DEFAULT_MIN_ACCESS_LEVEL, verbose=True, **kwargs: dict):
     """
     Decorator for checking if a user is authorized to use a command.
 

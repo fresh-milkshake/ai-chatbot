@@ -12,17 +12,16 @@ from telegram import (
 )
 from telegram.ext import ContextTypes
 
-from app.constants.paths import TMP_FILE_NAME
 import app.constants.strings as strings
+from app.constants.paths import TMP_FILE_NAME
 from app.bot.utils import BotWrapper, auth_required, args_required
 from app.constants import AccessLevel, DatabaseKeys
 from app.constants.defaults import DEFAULT_ACCESS_LEVEL, RATE_LIMIT_PAUSE
 from app.database import Database
 from app.constants.models import AvailableModels
 from app.model import LanguageModel
-from app.model.llama import LLaMAProvider
-from app.startup import TELEGRAM_TOKEN
 from app.utils import get_user_string
+from app.startup import TELEGRAM_TOKEN
 
 bot = BotWrapper(TELEGRAM_TOKEN)
 
@@ -53,10 +52,44 @@ async def start(update: Update, _: ContextTypes.DEFAULT_TYPE):
 @bot.error_handler()
 async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
-    Log errors caused by updates.
+    Log errors caused by updates and notify admins.
     """
+    error = context.error
 
-    logger.error(f"{update} ---> {context.error}")
+    logger.error(f"Update {update} caused error: {error}")
+
+    admin_chat_ids = []
+    response = Database().get_users()
+    if response.success:
+        users = response.data
+        for user in users.values():
+            if user.get(DatabaseKeys.User.ACCESS_LEVEL) == AccessLevel.ADMIN:
+                admin_chat_ids.append(user.get(DatabaseKeys.User.ID))
+
+    error_message = (
+        f"An error occurred:\n\n"
+        f"Update ID: {update.update_id}\n"
+        f"User: {update.message.from_user.first_name} (ID: {update.message.from_user.id})\n"
+        f"Chat: {update.message.chat.type.capitalize()} (ID: {update.message.chat.id})\n"
+        f"Message: '{update.message.text}'\n"
+        f"Date: {update.message.date}\n\n"
+        f"Error: {error}"
+    )
+    
+    for admin_id in admin_chat_ids:
+        try:
+            await context.bot.send_message(chat_id=admin_id, text=error_message)
+        except Exception as e:
+            logger.error(f"Failed to notify admin {admin_id}: {e}")
+
+
+@bot.handler_for("raise_error")
+@auth_required(min_level=AccessLevel.ADMIN)
+async def raise_error(update: Update, _: ContextTypes.DEFAULT_TYPE):
+    """
+    Raise an error to test the error handler.
+    """
+    raise Exception("This is a test error")
 
 
 @bot.handler_for("dump")
@@ -68,10 +101,12 @@ async def dump(update: Update, _: ContextTypes.DEFAULT_TYPE):
     """
     logger.debug(f"User {get_user_string(update)} used /dump command")
 
-    users_response = Database().get_users()
-    if not users_response.success:
-        await update.message.reply_text("Failed to retrieve user data.")
+    response = Database().get_users()
+    if not response.success:
+        await update.message.reply_text(strings.MSG_NO_USERS)
         return
+
+    users = response.data
 
     dump_data = [
         {
@@ -85,7 +120,7 @@ async def dump(update: Update, _: ContextTypes.DEFAULT_TYPE):
             ),
             "conversation": user_data.get("conversation"),
         }
-        for user_id, user_data in users_response.data.items()
+        for user_id, user_data in users.items()
     ]
 
     try:
@@ -117,13 +152,13 @@ async def dump(update: Update, _: ContextTypes.DEFAULT_TYPE):
 #         strings.MSG_WAITING_FOR_RESPONSE
 #     )
 
-#     user = Database().get_user_by_update(update)
+#     response = Database().get_user_by_update(update)
 
-#     if not user.success:
+#     if not response.success:
 #         await update.message.reply_text(strings.MSG_USER_NOT_FOUND)
 #         return
 
-#     user = user.data
+#     user = response.data
 
 #     message_text = update.message.text
 #     answer = await LanguageModel().create_answer(message_text, user)
@@ -148,13 +183,13 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"Received message from {get_user_string(update)}: {update.message.text}"
     )
 
-    user = Database().get_user_by_update(update)
+    response = Database().get_user_by_update(update)
 
-    if not user.success:
+    if not response.success:
         await update.message.reply_text(strings.MSG_USER_NOT_FOUND)
         return
 
-    user = user.data
+    user = response.data
 
     placeholder_message = await update.message.reply_text(
         strings.MSG_WAITING_FOR_RESPONSE
@@ -163,10 +198,13 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     full_response = ""
     last_response = ""
     rate_limit = time.time() + RATE_LIMIT_PAUSE
-    async for chunk in LLaMAProvider().stream_answer(update.message.text, user):
+    async for chunk in LanguageModel().stream_answer(update.message.text, user):
         full_response += chunk
 
-        if full_response == last_response or time.time() - rate_limit < RATE_LIMIT_PAUSE:
+        if (
+            full_response == last_response
+            or time.time() - rate_limit < RATE_LIMIT_PAUSE
+        ):
             continue
 
         rate_limit = time.time() + RATE_LIMIT_PAUSE
@@ -192,11 +230,13 @@ async def get_users(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     logger.debug(f"User {get_user_string(update)} used /users command")
 
-    users = Database().get_users()
+    response = Database().get_users()
 
-    if not users:
+    if not response.success:
         await update.message.reply_text(strings.MSG_NO_USERS)
         return
+
+    users = response.data
 
     users = [
         f"{user.get('first_name')} {user.get('last_name', '---')} \"{user.get('username', '')}\" (ID{user.get('id')})"
@@ -216,7 +256,13 @@ async def choose_model(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     logger.debug(f"User {get_user_string(update)} used /model command")
 
-    user = Database().get_user_by_update(update)
+    response = Database().get_user_by_update(update)
+
+    if not response.success:
+        await update.message.reply_text(strings.MSG_USER_NOT_FOUND)
+        return
+
+    user = response.data
 
     keyboard = [
         [
@@ -264,11 +310,13 @@ async def get_users(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     logger.debug(f"User {get_user_string(update)} used /users command")
 
-    users = Database().get_users()
+    response = Database().get_users()
 
-    if not users:
+    if not response.success:
         await update.message.reply_text(strings.MSG_NO_USERS)
         return
+
+    users = response.data
 
     users = [
         f"{user.get('first_name')} {user.get('last_name') if user.get('last_name') else '---'} \"{user.get('username')}\" (ID{user.get('id')})"
@@ -289,6 +337,13 @@ async def choose_model_callback(update: Update, context: ContextTypes.DEFAULT_TY
     logger.debug(f"User {get_user_string(update)} used /model callback")
 
     user = Database().get_user_by_update(update)
+
+    if not user.success:
+        await update.callback_query.answer()
+        await update.callback_query.edit_message_text(strings.MSG_USER_NOT_FOUND)
+        return
+
+    user = user.data
 
     model_name = update.callback_query.data.split(":")[1]
 
@@ -314,7 +369,7 @@ async def state(update: Update, context: ContextTypes.DEFAULT_TYPE):
     logger.debug(f"User {get_user_string(update)} used /state command")
 
     await update.message.reply_text(
-        strings.MSG_STATE.format(LanguageModel().stability_percentage)
+        strings.MSG_STATE.format(LanguageModel().stability_percentage())
     )
 
 
@@ -335,11 +390,13 @@ async def get_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if user_id.startswith("ID"):
         user_id = user_id[2:]
 
-    user = Database().get_user(user_id)
+    response = Database().get_user(user_id)
 
-    if not user:
+    if not response.success:
         await update.message.reply_text(strings.MSG_USER_NOT_FOUND)
         return
+
+    user = response.data
 
     conversation = user.get("conversation")
 
@@ -399,7 +456,7 @@ async def delete_user(update: Update, args: list, query: CallbackQuery):
     if user_id.startswith("ID"):
         user_id = int(user_id[2:])
 
-    if not Database().delete_user(user_id):
+    if not Database().delete_user(user_id).success:
         await query.edit_message_text(strings.MSG_USER_NOT_FOUND)
         return
 
@@ -427,12 +484,6 @@ async def change_access_level(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     if user_id.startswith("ID"):
         user_id = int(user_id[2:])
-
-    user = Database().get_user(user_id)
-
-    if not user:
-        await query.edit_message_text(strings.MSG_USER_NOT_FOUND)
-        return
 
     buttons = []
     for access_level in AccessLevel().all:
@@ -479,11 +530,13 @@ async def change_access_level_confirm(
     if user_id.startswith("ID"):
         user_id = int(user_id[2:])
 
-    user = Database().get_user(user_id)
+    response = Database().get_user(user_id)
 
-    if not user:
+    if not response.success:
         await query.edit_message_text(strings.MSG_USER_NOT_FOUND)
         return
+
+    user = response.data
 
     user["access_level"] = int(access_level)
     Database().update_user_by_id(user_id, user)
@@ -516,11 +569,13 @@ async def forward_requests(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if user_id.startswith("ID"):
         user_id = int(user_id[2:])
 
-    user = Database().get_user(user_id)
+    response = Database().get_user(user_id)
 
-    if not user:
+    if not response.success:
         await query.edit_message_text(strings.MSG_USER_NOT_FOUND)
         return
+
+    user = response.data
 
     for request in user["conversation"]:
         await context.bot.send_message(
@@ -531,7 +586,7 @@ async def forward_requests(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 @bot.handler_for("help")
-async def help_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def help_info(update: Update, _: ContextTypes.DEFAULT_TYPE):
     """
     Send a message when the command /help is issued.
     """
@@ -541,7 +596,7 @@ async def help_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 @bot.handler_for("reset")
 @auth_required(min_level=AccessLevel.USER)
-async def reset(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def reset(update: Update, _: ContextTypes.DEFAULT_TYPE):
     """
     Reset the conversation with the user.
     """
@@ -549,6 +604,13 @@ async def reset(update: Update, context: ContextTypes.DEFAULT_TYPE):
     logger.debug(f"User {get_user_string(update)} used /reset command")
 
     user = Database().get_user_by_update(update)
+
+    if not user.success:
+        await update.message.reply_text(strings.MSG_USER_NOT_FOUND)
+        return
+
+    user = user.data
+
     user["conversation"] = []
     Database().update_user_by_id(user["id"], user)
     await update.message.reply_text(strings.MSG_RESET)

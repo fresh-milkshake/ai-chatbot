@@ -1,14 +1,13 @@
+import json
 from typing import Dict, Optional
 
 from loguru import logger
 from telegram import Update
 
+from app.database.utils import gather_user_data
+
 from .abstraction import StorageProvider, Response
 import sqlite3
-
-from app.constants.defaults import DEFAULT_NEW_USER
-from app.startup import REDIS_PASSWORD, REDIS_HOST, REDIS_PORT, REDIS_DB_INDEX
-from app.utils import get_user_string
 
 
 class SqliteDatabase(StorageProvider):
@@ -60,6 +59,10 @@ class SqliteDatabase(StorageProvider):
     def update_user_by_id(self, user_id: int, user_data: dict) -> Response[bool]:
         """Update a single user by their ID."""
         try:
+            if not isinstance(user_id, int):
+                logger.error(f"Invalid user ID type: {type(user_id)}")
+                raise ValueError("Invalid user ID type")
+
             with sqlite3.connect(self.db_path) as conn:
                 cursor = conn.cursor()
                 cursor.execute(
@@ -71,8 +74,11 @@ class SqliteDatabase(StorageProvider):
                 conn.commit()
             logger.info(f"Updated user with ID {user_id} successfully")
             return Response(success=True, data=True)
+        except sqlite3.Error as e:
+            logger.error(f"SQLite error updating user with ID {user_id}: {e}")
+            return Response(success=False, data=str(e))
         except Exception as e:
-            logger.error(f"Error updating user with ID {user_id}: {e}")
+            logger.error(f"Unexpected error updating user with ID {user_id}: {e}")
             return Response(success=False, data=str(e))
 
     def update_user(self, user_data: dict) -> Response[bool]:
@@ -123,6 +129,14 @@ class SqliteDatabase(StorageProvider):
             user_data = self._get_user_by_id(user_id)
         logger.info(f"Retrieved user with ID {user_id} successfully")
         return Response(success=True, data=user_data)
+    
+    def create_user_from_update(self, update: Update) -> Response[bool]:
+        """Create a user from a Telegram Update."""
+        try:
+            user_id, user_data = gather_user_data(update)
+            return self.update_user_by_id(user_id, user_data)
+        except Exception as e:
+            return Response(success=False, data=str(e))
 
     def delete_user(self, user_id: int) -> Response[bool]:
         """Delete a user by their ID."""
@@ -137,15 +151,6 @@ class SqliteDatabase(StorageProvider):
                 )
                 conn.commit()
             return Response(success=True, data=True)
-        except Exception as e:
-            return Response(success=False, data=str(e))
-
-    def create_user_from_update(self, update: Update) -> Response[bool]:
-        """Create a user from a Telegram Update."""
-        try:
-            user_id = update.effective_user.id
-            user_data = {**update.effective_user.to_dict(), **DEFAULT_NEW_USER}
-            return self.update_user_by_id(user_id, user_data)
         except Exception as e:
             return Response(success=False, data=str(e))
 

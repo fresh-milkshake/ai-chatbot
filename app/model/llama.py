@@ -67,7 +67,7 @@ class LLaMAProvider(Singleton, ABC):
         user["conversation"] = [*messages, answer]
 
         Database().update_user_by_id(
-            user_id=user.get(DatabaseKeys.User.UNIQUE_ID),
+            user_id=user.get(DatabaseKeys.User.ID),
             user_data=user,
         )
 
@@ -99,7 +99,7 @@ class LLaMAProvider(Singleton, ABC):
         user["conversation"] = [*messages, answer]
 
         Database().update_user_by_id(
-            user_id=user.get(DatabaseKeys.User.UNIQUE_ID),
+            user_id=user[DatabaseKeys.User.ID],
             user_data=user,
         )
 

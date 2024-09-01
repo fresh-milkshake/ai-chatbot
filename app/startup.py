@@ -33,11 +33,13 @@ ENVIRONMENT = {
     "OPENAI_API_KEY": os.environ.get("OPENAI_API_KEY", ""),
     "TELEGRAM_TOKEN": os.environ.get("TELEGRAM_TOKEN", ""),
     "REDIS_PASSWORD": os.environ.get("REDIS_PASSWORD", ""),
+    "ADMIN_ID": os.environ.get("ADMIN_ID", ""),
 }
 
 __RAW_SETTINGS.set("global", "telegram_token", ENVIRONMENT["TELEGRAM_TOKEN"])
 __RAW_SETTINGS.set("global", "openai_token", ENVIRONMENT["OPENAI_API_KEY"])
 __RAW_SETTINGS.set("redis", "redis_password", ENVIRONMENT["REDIS_PASSWORD"])
+__RAW_SETTINGS.set("global", "admin_id", ENVIRONMENT["ADMIN_ID"])
 
 MAINTENANCE_MODE = __RAW_SETTINGS.getboolean(
     "global", "maintenance_mode", fallback=False
@@ -45,6 +47,10 @@ MAINTENANCE_MODE = __RAW_SETTINGS.getboolean(
 
 TELEGRAM_TOKEN = __RAW_SETTINGS.get("global", "telegram_token", fallback=None)
 OPENAI_TOKEN = __RAW_SETTINGS.get("global", "openai_token", fallback=None)
+ADMIN_ID = __RAW_SETTINGS.get("global", "admin_id", fallback=-1)
+
+if isinstance(ADMIN_ID, str) and ADMIN_ID.isdecimal():
+    ADMIN_ID = int(ADMIN_ID)
 
 REDIS_HOST = __RAW_SETTINGS.get("redis", "redis_host", fallback="localhost")
 REDIS_PORT = __RAW_SETTINGS.getint("redis", "redis_port", fallback=6379)
@@ -54,8 +60,8 @@ REDIS_PASSWORD = __RAW_SETTINGS.get("redis", "redis_password", fallback=None)
 DEFAULT_ACCESS_LEVEL = __RAW_SETTINGS.getint(
     "access", "default_access_level", fallback=0
 )
-MIN_BOT_ACCESS_LEVEL = __RAW_SETTINGS.getint(
-    "access", "min_bot_access_level", fallback=0
+DEFAULT_MIN_ACCESS_LEVEL = __RAW_SETTINGS.getint(
+    "access", "min_bot_access_level", fallback=AccessLevel.GUEST
 )
 
 assert TELEGRAM_TOKEN is not None and TELEGRAM_TOKEN != "", "Telegram token is not set!"

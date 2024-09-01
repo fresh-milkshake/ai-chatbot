@@ -146,7 +146,7 @@ class DatabaseKeys:
 
         ACCESS_LEVEL = 'access_level'
         CONVERSATION = 'conversation'
-        UNIQUE_ID = 'unique_id'
+        ID = 'id'
         LANGUAGE_CODE = 'language_code'
         CHOSEN_MODEL = 'local_model'
 

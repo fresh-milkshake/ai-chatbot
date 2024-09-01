@@ -26,12 +26,12 @@ class AvailableModels:
     )
 
     LATEST_LLAMA = Model(
-        name="llama-2-7b-chat",
+        name="llama3",
         min_access_level=AccessLevel.USER,
         temperature=DEFAULT_TEMPERATURE,
         is_active=True,
     )
-    
+
     GPT4FREE = Model(
         name="gpt4free",
         min_access_level=AccessLevel.USER,
