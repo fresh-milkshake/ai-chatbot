@@ -28,4 +28,4 @@ from app.model.llama import LLaMAProvider
 
 
 
-LanguageModel: ChatProvider = LLaMAProvider
+LanguageModel = LLaMAProvider

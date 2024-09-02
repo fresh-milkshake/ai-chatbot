@@ -315,6 +315,8 @@ class BotWrapper(Singleton):
         method for registering handler.
         """
 
+        unknown_cmd_handler = None
+
         for handler_type, context, handler in self.handlers:
             match handler_type:
                 case HandlerType.COMMAND:
@@ -330,15 +332,22 @@ class BotWrapper(Singleton):
                 case HandlerType.ERROR:
                     self.application.add_error_handler(handler)
                 case HandlerType.UNKNOWN:
-                    self.application.add_handler(
-                        MessageHandler(filters.COMMAND, handler)
-                    )
+                    logger.error(handler)
+                    unknown_cmd_handler = handler
                 case _:
                     logger.error(
                         f'Unknown type "{handler_type}" for handler "{handler}" with context "{context}"'
                     )
 
             logger.debug(f"Registered {handler_type}:{handler.__name__}")
+
+        if unknown_cmd_handler:
+            self.application.add_handler(
+                MessageHandler(filters.COMMAND, unknown_cmd_handler)
+            )
+            logger.debug(
+                f"Registered unknown command handler: {unknown_cmd_handler.__name__}"
+            )
 
         logger.debug(f"Registered handlers: {len(self.application.handlers[0])}")
 

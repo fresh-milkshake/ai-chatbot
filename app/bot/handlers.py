@@ -1,7 +1,5 @@
-import asyncio
 import json
 import os
-import tempfile
 import time
 from loguru import logger
 from telegram import (
@@ -13,15 +11,15 @@ from telegram import (
 from telegram.ext import ContextTypes
 
 import app.constants.strings as strings
-from app.constants.paths import TMP_FILE_NAME
 from app.bot.utils import BotWrapper, auth_required, args_required
 from app.constants import AccessLevel, DatabaseKeys
 from app.constants.defaults import DEFAULT_ACCESS_LEVEL, RATE_LIMIT_PAUSE
-from app.database import Database
 from app.constants.models import AvailableModels
+from app.constants.paths import TMP_FILE_NAME
+from app.database import Database
 from app.model import LanguageModel
-from app.utils import get_user_string
 from app.startup import TELEGRAM_TOKEN
+from app.utils import get_user_string
 
 bot = BotWrapper(TELEGRAM_TOKEN)
 
@@ -38,15 +36,15 @@ async def start(update: Update, _: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(strings.MSG_WELCOME)
 
 
-# @bot.unknown_command_handler()
-# async def unknown_command(update: Update, _: ContextTypes.DEFAULT_TYPE):
-#     """
-#     Handle unknown commands.
-#     """
+@bot.unknown_command_handler()
+async def unknown_command(update: Update, _: ContextTypes.DEFAULT_TYPE):
+    """
+    Handle unknown commands.
+    """
 
-#     logger.debug(f"User {get_user_string(update)} used unknown command")
+    logger.debug(f"User {get_user_string(update)} used unknown command")
 
-#     await update.message.reply_text(strings.MSG_UNKNOWN_COMMAND)
+    await update.message.reply_text(strings.MSG_UNKNOWN_COMMAND)
 
 
 @bot.error_handler()
@@ -57,6 +55,14 @@ async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     error = context.error
 
     logger.error(f"Update {update} caused error: {error}")
+
+    # check if we have infernet connection with telegram servers and if we have - send message to admins
+    try:
+        # Check if we have internet connection with Telegram servers
+        await context.bot.get_me()
+    except Exception as e:
+        logger.error(f"Failed to connect to Telegram servers: {e}")
+        return
 
     admin_chat_ids = []
     response = Database().get_users()
@@ -69,13 +75,13 @@ async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     error_message = (
         f"An error occurred:\n\n"
         f"Update ID: {update.update_id}\n"
-        f"User: {update.message.from_user.first_name} (ID: {update.message.from_user.id})\n"
+        f"User: {update.effective_user.first_name} (ID: {update.effective_user.id})\n"
         f"Chat: {update.message.chat.type.capitalize()} (ID: {update.message.chat.id})\n"
         f"Message: '{update.message.text}'\n"
         f"Date: {update.message.date}\n\n"
         f"Error: {error}"
     )
-    
+
     for admin_id in admin_chat_ids:
         try:
             await context.bot.send_message(chat_id=admin_id, text=error_message)
@@ -137,44 +143,9 @@ async def dump(update: Update, _: ContextTypes.DEFAULT_TYPE):
             os.remove(TMP_FILE_NAME)
 
 
-# @bot.text_handler()
-# @auth_required(min_level=AccessLevel.USER)
-# async def text_handler(update: Update, _: ContextTypes.DEFAULT_TYPE):
-#     """
-#     Handle text messages and use the Provider to generate a response.
-#     """
-
-#     logger.info(
-#         f"Received message from {get_user_string(update)}: {update.message.text}"
-#     )
-
-#     placeholder_message = await update.message.reply_text(
-#         strings.MSG_WAITING_FOR_RESPONSE
-#     )
-
-#     response = Database().get_user_by_update(update)
-
-#     if not response.success:
-#         await update.message.reply_text(strings.MSG_USER_NOT_FOUND)
-#         return
-
-#     user = response.data
-
-#     message_text = update.message.text
-#     answer = await LanguageModel().create_answer(message_text, user)
-
-#     await placeholder_message.delete()
-
-#     try:
-#         await update.message.reply_markdown(answer)
-#     except Exception as e:
-#         logger.warning(f"Error while parsing markdown: {e}")
-#         await update.message.reply_text(answer)
-
-
 @bot.text_handler()
 @auth_required(min_level=AccessLevel.USER)
-async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def text_handler(update: Update, _: ContextTypes.DEFAULT_TYPE):
     """
     Handle text messages and use the Provider to generate a response.
     """
@@ -198,13 +169,11 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     full_response = ""
     last_response = ""
     rate_limit = time.time() + RATE_LIMIT_PAUSE
+
     async for chunk in LanguageModel().stream_answer(update.message.text, user):
         full_response += chunk
 
-        if (
-            full_response == last_response
-            or time.time() - rate_limit < RATE_LIMIT_PAUSE
-        ):
+        if full_response.strip() == last_response.strip() or time.time() < rate_limit:
             continue
 
         rate_limit = time.time() + RATE_LIMIT_PAUSE
@@ -327,36 +296,42 @@ async def get_users(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(users)
 
 
-@bot.callback_for("choose_model")  # TODO: i dont sure if this is right callback pattern
+@bot.callback_for("choose_model")
 @auth_required(min_level=AccessLevel.USER)
-async def choose_model_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def choose_model_callback(update: Update, _: ContextTypes.DEFAULT_TYPE):
     """
     Handle the /model callback.
     """
 
     logger.debug(f"User {get_user_string(update)} used /model callback")
 
-    user = Database().get_user_by_update(update)
+    query = update.callback_query
+    await query.answer()
 
-    if not user.success:
-        await update.callback_query.answer()
-        await update.callback_query.edit_message_text(strings.MSG_USER_NOT_FOUND)
+    response = Database().get_user_by_update(update)
+
+    if not response.success:
+        await query.answer(strings.MSG_USER_NOT_FOUND, show_alert=True)
         return
 
-    user = user.data
+    user = response.data
+    model_name = query.data.split(":")[1]
 
-    model_name = update.callback_query.data.split(":")[1]
-
-    for model in AvailableModels.ALL:
-        if model.name == model_name:
-            user[DatabaseKeys.User.CHOSEN_MODEL] = model_name
-            Database().update_user_by_id(user.get("id"), user)
-            break
-
-    await update.callback_query.answer()
-    await update.callback_query.edit_message_text(
-        strings.MSG_MODEL_CHOSEN.format(model_name)
+    chosen_model = next(
+        (model for model in AvailableModels.ALL if model.name == model_name), None
     )
+
+    if chosen_model:
+        user[DatabaseKeys.User.CHOSEN_MODEL] = model_name
+
+        response = Database().update_user_by_id(user.get("id"), user)
+
+        if response.success:
+            await query.edit_message_text(strings.MSG_MODEL_CHOSEN.format(model_name))
+        else:
+            await query.edit_message_text(strings.MSG_FAILED_UPDATE_USER)
+    else:
+        await query.edit_message_text(strings.MSG_MODEL_NOT_FOUND)
 
 
 @bot.handler_for("state")
@@ -371,6 +346,58 @@ async def state(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         strings.MSG_STATE.format(LanguageModel().stability_percentage())
     )
+
+
+@bot.handler_for("set_rate_limit_pause")
+@auth_required(min_level=AccessLevel.ADMIN)
+async def rate_limit_pause(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Handle the /rate_limit_pause command.
+    """
+
+    logger.debug(f"User {get_user_string(update)} used /rate_limit_pause command")
+
+    if not context.args:
+        await update.message.reply_text("Usage: /set_rate_limit_pause <seconds>")
+        return
+
+    try:
+        rate_limit_pause = int(context.args[0])
+
+        if rate_limit_pause <= 0:
+            raise ValueError
+    except ValueError:
+        await update.message.reply_text(strings.MSG_INVALID_RATE_LIMIT_PAUSE)
+        return
+
+    global RATE_LIMIT_PAUSE
+    RATE_LIMIT_PAUSE = rate_limit_pause
+
+    await update.message.reply_text(
+        strings.MSG_RATE_LIMIT_PAUSE_SET.format(rate_limit_pause)
+    )
+
+
+@bot.handler_for("admin_commands")
+@auth_required(min_level=AccessLevel.ADMIN)
+async def admin_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Handle the /admin_commands command.
+    """
+
+    logger.debug(f"User {get_user_string(update)} used /admin_commands command")
+
+    commands = [
+        "/set_rate_limit_pause <seconds>",
+        "/user <user_id>",
+        "/users",
+        "/delete_user <user_id>",
+        "/dump",
+    ]
+
+    commands = "\n".join(commands)
+
+    await update.message.reply_text(commands)
 
 
 @bot.handler_for("user")
