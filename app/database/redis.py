@@ -27,16 +27,16 @@ def crud_request(func):
         try:
             return func(*args, **kwargs)
         except redis.exceptions.ConnectionError:
-            logger.error('REDIS: Connection error')
+            logger.error("REDIS: Connection error")
             return None
         except Exception as e:
-            logger.error(f'REDIS: Unknown error: {e}')
+            logger.error(f"REDIS: Unknown error: {e}")
             return None
 
     return error_handler
 
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 @dataclass
@@ -85,11 +85,11 @@ class RedisCache(StorageProvider):
 
     def on_created(self):
         logger.debug(
-            f'Connecting to Redis at {REDIS_HOST}:{REDIS_PORT} with password {REDIS_PASSWORD[:3]}...{REDIS_PASSWORD[-3:]}')
-        self.redis_client = redis.Redis(host=REDIS_HOST,
-                                        port=REDIS_PORT,
-                                        db=REDIS_DB_INDEX,
-                                        password=REDIS_PASSWORD)
+            f"Connecting to Redis at {REDIS_HOST}:{REDIS_PORT} with password {REDIS_PASSWORD[:3]}...{REDIS_PASSWORD[-3:]}"
+        )
+        self.redis_client = redis.Redis(
+            host=REDIS_HOST, port=REDIS_PORT, db=REDIS_DB_INDEX, password=REDIS_PASSWORD
+        )
 
     @crud_request
     def get_users(self) -> RedisResponse[Dict[str, Dict]]:
@@ -99,14 +99,13 @@ class RedisCache(StorageProvider):
         Returns:
             A dictionary mapping user IDs to user data dictionaries.
         """
-        logger.debug('REDIS: Getting users')
+        logger.debug("REDIS: Getting users")
         users = {}
         for key in self.redis_client.scan_iter(match="user:*"):
-            user_id = key.decode().split(':')[1]
+            user_id = key.decode().split(":")[1]
             user_data = self.redis_client.hgetall(key)
             users[user_id] = {
-                k.decode(): json.loads(v.decode())
-                for k, v in user_data.items()
+                k.decode(): json.loads(v.decode()) for k, v in user_data.items()
             }
         return wrap_response(users)
 
@@ -121,14 +120,14 @@ class RedisCache(StorageProvider):
         Returns:
             A boolean indicating if the update was successful.
         """
-        logger.debug('REDIS: Updating users')
+        logger.debug("REDIS: Updating users")
         try:
             with self.redis_client.pipeline() as pipe:
                 for user_id, user_data in users.items():
                     pipe.hmset(
                         f"user:{user_id}",
-                        {k: json.dumps(v)
-                         for k, v in user_data.items()})
+                        {k: json.dumps(v) for k, v in user_data.items()},
+                    )
                 pipe.execute()
             return wrap_response(True)
         except Exception as e:
@@ -150,9 +149,8 @@ class RedisCache(StorageProvider):
         logger.debug(f"REDIS: Updating user with ID {user_id}")
         try:
             self.redis_client.hmset(
-                f"user:{user_id}",
-                {k: json.dumps(v)
-                 for k, v in user_data.items()})
+                f"user:{user_id}", {k: json.dumps(v) for k, v in user_data.items()}
+            )
             return wrap_response(True)
         except Exception as e:
             logger.error(f"REDIS: Failed to update user {user_id}: {e}")
@@ -169,17 +167,17 @@ class RedisCache(StorageProvider):
         Returns:
             A boolean indicating if the update was successful.
         """
-        user_id = user_data.get('id')
+        user_id = user_data.get("id")
         if not user_id:
-            logger.error(f"REDIS: Failed to update user: user ID not found")
+            logger.error("REDIS: Failed to update user: user ID not found")
+
             return wrap_response(False)
 
         logger.debug(f"REDIS: Updating user with ID {user_id}")
         try:
             self.redis_client.hmset(
-                f"user:{user_id}",
-                {k: json.dumps(v)
-                 for k, v in user_data.items()})
+                f"user:{user_id}", {k: json.dumps(v) for k, v in user_data.items()}
+            )
             return wrap_response(True)
         except Exception as e:
             logger.error(f"REDIS: Failed to update user {user_id}: {e}")
@@ -200,10 +198,7 @@ class RedisCache(StorageProvider):
         if not user_data_raw:
             return wrap_response({})
         return wrap_response(
-            {
-                k.decode(): json.loads(v.decode())
-                for k, v in user_data_raw.items()
-            }
+            {k.decode(): json.loads(v.decode()) for k, v in user_data_raw.items()}
         )
 
     @crud_request
@@ -272,7 +267,7 @@ class RedisCache(StorageProvider):
         Returns:
             A boolean indicating if the user creation was successful.
         """
-        logger.info(f'REDIS: Creating new user {get_user_string(update)}')
+        logger.info(f"REDIS: Creating new user {get_user_string(update)}")
 
         user_id = update.effective_user.id
         user_data = {**update.effective_user.to_dict(), **DEFAULT_NEW_USER}
