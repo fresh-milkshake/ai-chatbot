@@ -1,10 +1,7 @@
-import asyncio
 from dataclasses import dataclass
-from typing import AsyncGenerator, Generic, TypeVar, Dict
-from abc import ABC, abstractmethod
+from typing import AsyncGenerator, Generic, TypeVar
+from abc import ABC
 
-from loguru import logger
-from telegram import Update
 
 from app.constants import DatabaseKeys
 from app.constants.defaults import DEFAULT_MODEL
@@ -47,7 +44,6 @@ class LLaMAProvider(Singleton, ABC):
         if isinstance(user, User):
             user = user.to_dict()
 
-        error_message = None
         response = None
         answer = ""
 

@@ -25,14 +25,28 @@ class AvailableModels:
         is_active=True,
     )
 
-    LATEST_LLAMA = Model(
+    LLAMA3 = Model(
         name="llama3",
         min_access_level=AccessLevel.USER,
         temperature=DEFAULT_TEMPERATURE,
         is_active=True,
     )
-    
-    LATEST_LLAMA = Model(
+
+    LLAMA3_1 = Model(
+        name="llama3.1",
+        min_access_level=AccessLevel.USER,
+        temperature=DEFAULT_TEMPERATURE,
+        is_active=True,
+    )
+
+    LLAVA = Model(
+        name="llava",
+        min_access_level=AccessLevel.PRIVILEGED_USER,
+        temperature=DEFAULT_TEMPERATURE,
+        is_active=False,
+    )
+
+    LLAMA2_UNCENSORED = Model(
         name="llama2-uncensored",
         min_access_level=AccessLevel.USER,
         temperature=DEFAULT_TEMPERATURE,
@@ -46,7 +60,15 @@ class AvailableModels:
         is_active=True,
     )
 
-    ALL = [GPT3_5_TURBO, GPT4, LATEST_LLAMA]
+    @classmethod
+    def ALL(cls):
+        models = []
+
+        for attr in cls.__dict__:
+            if attr.startswith("__") and attr.endswith("__"):
+                continue
+            models.append(cls.__dict__[attr])
+        return models
 
     @staticmethod
     def filter_by_access_level(access_level: AccessLevel):
@@ -59,9 +81,18 @@ class AvailableModels:
         Returns:
             Filtered list of models.
         """
-        return list(
-            filter(
-                lambda model: model.min_access_level <= access_level,
-                AvailableModels.ALL,
-            )
-        )
+        return [
+            model
+            for model in AvailableModels.ALL()
+            if model.min_access_level <= access_level
+        ]
+
+    @staticmethod
+    def latest_free():
+        """
+        Get the latest free model.
+
+        Returns:
+            Latest free model.
+        """
+        return AvailableModels.LLAMA3_1

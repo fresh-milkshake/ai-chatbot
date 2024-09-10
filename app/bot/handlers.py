@@ -81,7 +81,7 @@ async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"Date: {update.message.date}\n\n"
             f"Error: {error}"
         )
-    except:
+    except Exception:
         error_message = (
             "An error occurred:\n\n" f"Update\n{str(update)}\n" f"Error\n{error}"
         )
@@ -177,6 +177,8 @@ async def text_handler(update: Update, _: ContextTypes.DEFAULT_TYPE):
     async for chunk in LanguageModel().stream_answer(update.message.text, user):
         full_response += chunk
 
+        logger.info(f"Full response: {full_response}")
+
         if full_response.strip() == last_response.strip() or time.time() < rate_limit:
             continue
 
@@ -186,12 +188,17 @@ async def text_handler(update: Update, _: ContextTypes.DEFAULT_TYPE):
             await placeholder_message.edit_text(full_response)
             last_response = full_response
         except Exception as e:
-            logger.warning(f"Error while editing message: {e}")
+            logger.error(f"Error while editing message: {e}")
 
     if not full_response:
-        await placeholder_message.edit_text(strings.MSG_EMPTY_RESPONSE)
+        logger.error("Got empty response from model")
     else:
-        await placeholder_message.edit_text(full_response)
+        try:
+            if full_response != last_response:
+                await placeholder_message.edit_text(full_response)
+        except Exception as e:
+            if "Message is not modified" not in str(e):
+                logger.error(f"Error while editing final message: {e}")
 
 
 @bot.handler_for("users")
@@ -274,30 +281,30 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.callback_query.message.edit_text(strings.MSG_CANCELLED)
 
 
-@bot.handler_for("users")
-@auth_required(min_level=AccessLevel.ADMIN)
-async def get_users(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    Handle the /users command.
-    """
+# @bot.handler_for("users")
+# @auth_required(min_level=AccessLevel.ADMIN)
+# async def get_users(update: Update, context: ContextTypes.DEFAULT_TYPE):
+#     """
+#     Handle the /users command.
+#     """
 
-    logger.debug(f"User {get_user_string(update)} used /users command")
+#     logger.debug(f"User {get_user_string(update)} used /users command")
 
-    response = Database().get_users()
+#     response = Database().get_users()
 
-    if not response.success:
-        await update.message.reply_text(strings.MSG_NO_USERS)
-        return
+#     if not response.success:
+#         await update.message.reply_text(strings.MSG_NO_USERS)
+#         return
 
-    users = response.data
+#     users = response.data
 
-    users = [
-        f"{user.get('first_name')} {user.get('last_name') if user.get('last_name') else '---'} \"{user.get('username')}\" (ID{user.get('id')})"
-        for user in users.values()
-    ]
-    users = "\n".join(users)
+#     users = [
+#         f"{user.get('first_name')} {user.get('last_name') if user.get('last_name') else '---'} \"{user.get('username')}\" (ID{user.get('id')})"
+#         for user in users.values()
+#     ]
+#     users = "\n".join(users)
 
-    await update.message.reply_text(users)
+#     await update.message.reply_text(users)
 
 
 @bot.callback_for("choose_model")
@@ -322,7 +329,7 @@ async def choose_model_callback(update: Update, _: ContextTypes.DEFAULT_TYPE):
     model_name = query.data.split(":")[1]
 
     chosen_model = next(
-        (model for model in AvailableModels.ALL if model.name == model_name), None
+        (model for model in AvailableModels.ALL() if model.name == model_name), None
     )
 
     if chosen_model:

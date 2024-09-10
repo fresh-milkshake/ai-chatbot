@@ -1,22 +1,36 @@
-from datetime import datetime
+import asyncio
+from dataclasses import dataclass
+from typing import AsyncGenerator, Generic, TypeVar, Dict
+from abc import ABC, abstractmethod
 
-import g4f
 from loguru import logger
+from telegram import Update
 
 from app.constants import DatabaseKeys
 from app.constants.defaults import DEFAULT_MODEL
 from app.database import Database
 from app.dto import User
-from app.model.abstraction import ChatProvider
+from app.utils import Singleton
+from g4f.client import Client
+
+T = TypeVar("T")
 
 
-class Gpt4FreeProviders(ChatProvider):
+@dataclass
+class Response(Generic[T]):
     """
-    A class that encapsulates the OpenAI language model and provides an interface to use it.
+    Dataclass for responses from databases.
 
     Attributes:
-
+        success: Whether the request was successful.
+        data: The data returned by the request.
     """
+
+    success: bool
+    data: T
+
+
+class GPT4FreeProvider(Singleton, ABC):
 
     _instance = None
 
@@ -25,92 +39,72 @@ class Gpt4FreeProviders(ChatProvider):
     total_responses_count: int
 
     def on_created(self):
-        """
-        Initialize the LanguageModel instance.
-        """
-
         self.error_responses_count = 0
         self.success_responses_count = 0
         self.total_responses_count = 0
+        self.client = Client()
 
     async def create_answer(self, message: str, user: dict | User) -> str:
-        """
-        Create an answer to a message using the OpenAI API.
-
-        Args:
-            message: The message to answer.
-            user: The user data dictionary from Redis.
-
-        Returns:
-            The answer to the message or an error message if the API call failed.
-        """
-
         if isinstance(user, User):
             user = user.to_dict()
 
-        error_message = None
-        response = None
-        answer = ''
+        answer = ""
 
-        new_message = {'role': 'user', 'content': message}
-        previous_conversation = user.get('conversation', [])
+        new_message = {"role": "user", "content": message}
+        previous_conversation = user.get("conversation", [])
         messages = [*previous_conversation, new_message]
 
-        try:
-            logger.info(f'Calling Gpt4Free "{user.get(DatabaseKeys.User.CHOSEN_MODEL, "UNKNOWN")}" model')
-            self.total_responses_count += 1
+        self.total_responses_count += 1
 
-            # streamed completion
-            response = g4f.ChatCompletion.create(
-                model="gpt-3.5-turbo",
-                messages=[{"role": "user", "content": "Hello"}],
-                stream=True,
-            )
+        response = self.client.chat.completions.create(
+            model=user.get(DatabaseKeys.User.CHOSEN_MODEL, DEFAULT_MODEL.name),
+            messages=messages,
+        )
+        print(response.choices[0].message.content)
 
-            for message in response:
-                print(message, flush=True, end='')
+        answer = response["message"]
+        user["conversation"] = [*messages, answer]
 
-            # normal response
-            response = g4f.ChatCompletion.create(
-                model=g4f.models.gpt_35_turbo,
-                messages=messages,
-            )  # alternative model setting
+        Database().update_user_by_id(
+            user_id=user.get(DatabaseKeys.User.ID),
+            user_data=user,
+        )
 
-            choice = response.get('choices')[0]
-            answer = choice.get('message').get('content')
-            answer = answer.strip()
-        except Exception as error:
-            error_message = await handle_model_error(error)
-        else:
-            self.success_responses_count += 1
-        finally:
-            self.error_responses_count += 1
+        return answer["content"].strip()
 
-        if error_message is not None:
-            error_info = {
-                'user_id': user.get('id'),
-                'message': message,
-                'previous_conversation': previous_conversation,
-                'response': response.to_dict() if response else None,
-                'error_message': error_message,
-                'timestamp': datetime.now()
-            }
-            logger.error(error_message, error_info=error_info)
+    async def stream_answer(
+        self, message: str, user: dict | User
+    ) -> AsyncGenerator[str, None]:
+        if isinstance(user, User):
+            user = user.to_dict()
 
-            return error_message + f'\n\nУровень стабильности: {self.stability_percentage:.2f}%'
+        new_message = {"role": "user", "content": message}
+        previous_conversation = user.get("conversation", [])
+        messages = [*previous_conversation, new_message]
 
-        user['conversation'] = [
-            *messages, {
-                'role': 'assistant',
-                'content': answer
-            }
-        ]
+        self.total_responses_count += 1
 
-        Database().update_user_by_id(user)
+        full_response = ""
+        chat_completion = self.client.chat.completions.create(
+            # model=user.get(DatabaseKeys.User.CHOSEN_MODEL, DEFAULT_MODEL.name),
+            model="llama-3.1-405b",
+            messages=messages,
+            stream=True,
+        )
 
-        return answer
+        for chunk in chat_completion:
+            data = chunk.choices[0].delta.content or ""
+            full_response += data
+            yield data
 
-    @property
+        answer = {"role": "assistant", "content": full_response}
+        user["conversation"] = [*messages, answer]
+
+        Database().update_user_by_id(
+            user_id=user[DatabaseKeys.User.ID],
+            user_data=user,
+        )
+
     def stability_percentage(self) -> float:
         if self.total_responses_count == 0:
             return 100.0
