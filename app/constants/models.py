@@ -31,6 +31,13 @@ class AvailableModels:
         temperature=DEFAULT_TEMPERATURE,
         is_active=True,
     )
+    
+    LATEST_LLAMA = Model(
+        name="llama2-uncensored",
+        min_access_level=AccessLevel.USER,
+        temperature=DEFAULT_TEMPERATURE,
+        is_active=True,
+    )
 
     GPT4FREE = Model(
         name="gpt4free",

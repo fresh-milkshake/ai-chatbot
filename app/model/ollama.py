@@ -108,3 +108,5 @@ class LLaMAProvider(Singleton, ABC):
             return 100.0
 
         return (self.success_responses_count / self.total_responses_count) * 100.0
+
+

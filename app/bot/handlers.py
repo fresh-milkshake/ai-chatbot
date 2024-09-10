@@ -72,15 +72,19 @@ async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if user.get(DatabaseKeys.User.ACCESS_LEVEL) == AccessLevel.ADMIN:
                 admin_chat_ids.append(user.get(DatabaseKeys.User.ID))
 
-    error_message = (
-        f"An error occurred:\n\n"
-        f"Update ID: {update.update_id}\n"
-        f"User: {update.effective_user.first_name} (ID: {update.effective_user.id})\n"
-        f"Chat: {update.message.chat.type.capitalize()} (ID: {update.message.chat.id})\n"
-        f"Message: '{update.message.text}'\n"
-        f"Date: {update.message.date}\n\n"
-        f"Error: {error}"
-    )
+    try:
+        error_message = (
+            f"An error occurred:\n\n"
+            f"Update ID: {update.update_id}\n"
+            f"User: {update.effective_user.first_name} (ID: {update.effective_user.id})\n"
+            f"Message: '{update.message.text}'\n"
+            f"Date: {update.message.date}\n\n"
+            f"Error: {error}"
+        )
+    except:
+        error_message = (
+            "An error occurred:\n\n" f"Update\n{str(update)}\n" f"Error\n{error}"
+        )
 
     for admin_id in admin_chat_ids:
         try:
@@ -452,7 +456,7 @@ async def get_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [
             InlineKeyboardButton(
                 text="Изменить уровень доступа",
-                callback_data=f"change_access_level {user_id}",
+                callback_data=f"choose_access_level {user_id}",
             )
         ],
         [
@@ -490,19 +494,20 @@ async def delete_user(update: Update, args: list, query: CallbackQuery):
     await query.edit_message_text(strings.MSG_USER_DELETED)
 
 
-@bot.callback_for("change_access_level")  # TODO: same as in callback handler above
+@bot.callback_for("choose_access_level")
 @auth_required(min_level=AccessLevel.ADMIN, verbose=False)
-async def change_access_level(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def choose_access_level(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
-    Handle the /change_access_level command.
+    Handle the /choose_access_level command.
     """
 
-    logger.debug(f"User {get_user_string(update)} used /change_access_level command")
+    logger.debug(f"User {get_user_string(update)} used /choose_access_level command")
 
     query = update.callback_query
     await query.answer()
 
     args = query.data.split(" ")
+    logger.debug(f"Args: {args}")
     if len(args) != 2:
         await query.edit_message_text(strings.MSG_NO_USER_ID)
         return
@@ -513,11 +518,12 @@ async def change_access_level(update: Update, context: ContextTypes.DEFAULT_TYPE
         user_id = int(user_id[2:])
 
     buttons = []
-    for access_level in AccessLevel().all:
+
+    for access_level in AccessLevel.all():
         buttons.append(
             [
                 InlineKeyboardButton(
-                    text=AccessLevel.from_int(access_level, "ru"),
+                    text=AccessLevel.from_int(access_level=access_level, locale="ru"),
                     callback_data=f"change_access_level_confirm {user_id} {access_level}",
                 )
             ]
@@ -547,6 +553,7 @@ async def change_access_level_confirm(
     await query.answer()
 
     args = query.data.split(" ")
+    logger.debug(f"Args: {args}")
     if len(args) != 3:
         await query.edit_message_text(strings.MSG_NO_USER_ID)
         return
@@ -554,8 +561,12 @@ async def change_access_level_confirm(
     user_id = args[1]
     access_level = args[2]
 
-    if user_id.startswith("ID"):
-        user_id = int(user_id[2:])
+    try:
+        user_id = int(user_id)
+        access_level = int(access_level)
+    except ValueError:
+        await query.edit_message_text(strings.MSG_INVALID_INPUT)
+        return
 
     response = Database().get_user(user_id)
 
@@ -565,12 +576,20 @@ async def change_access_level_confirm(
 
     user = response.data
 
-    user["access_level"] = int(access_level)
-    Database().update_user_by_id(user_id, user)
+    if access_level not in AccessLevel.all():
+        await query.edit_message_text(strings.MSG_INVALID_ACCESS_LEVEL)
+        return
+
+    user[DatabaseKeys.User.ACCESS_LEVEL] = access_level
+    update_response = Database().update_user_by_id(user_id, user)
+
+    if not update_response.success:
+        await query.edit_message_text(strings.MSG_UPDATE_FAILED)
+        return
 
     await query.edit_message_text(strings.MSG_ACCESS_LEVEL_CHANGED)
 
-    context.args = [user_id]
+    context.args = [str(user_id)]
     await get_user(update, context)
 
 

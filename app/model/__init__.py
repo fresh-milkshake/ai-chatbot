@@ -24,7 +24,7 @@ See Also:
 from app.model.abstraction import ChatProvider
 # from app.model.openai import OpenAIModels
 # from app.model.gpt4free import Gpt4FreeProviders
-from app.model.llama import LLaMAProvider
+from app.model.ollama import LLaMAProvider
 
 
 

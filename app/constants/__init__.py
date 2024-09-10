@@ -42,40 +42,43 @@ class AccessLevel:
     ADMIN = 4
 
     __translations = {
-        'en': {
-            GUEST: 'Guest',
-            USER: 'User',
-            PRIVILEGED_USER: 'Privileged user',
-            MODERATOR: 'Moderator',
-            ADMIN: 'Admin',
+        "en": {
+            GUEST: "Guest",
+            USER: "User",
+            PRIVILEGED_USER: "Privileged user",
+            MODERATOR: "Moderator",
+            ADMIN: "Admin",
         },
-        'ru': {
-            GUEST: 'Гость',
-            USER: 'Пользователь',
-            PRIVILEGED_USER: 'Привилегированный пользователь',
-            MODERATOR: 'Модератор',
-            ADMIN: 'Администратор',
+        "ru": {
+            GUEST: "Гость",
+            USER: "Пользователь",
+            PRIVILEGED_USER: "Привилегированный пользователь",
+            MODERATOR: "Модератор",
+            ADMIN: "Администратор",
         },
     }
 
-    @property
-    def all(self) -> list[int]:
+    @staticmethod
+    def all() -> list[int]:
         """
         Returns a list of all access levels as integers.
 
         Returns:
-            A list of integers representing all access levels.
+            list[int]: A sorted list of integers representing all access levels.
         """
-
-        levels = []
-        for attribute in dir(self):
-            if not attribute.startswith('__') and not callable(getattr(self, attribute)) \
-                    and attribute.isupper() and isinstance(getattr(self, attribute), int):
-                levels.append(getattr(self, attribute))
-        return levels
+        return sorted(
+            [
+                getattr(AccessLevel, attr)
+                for attr in dir(AccessLevel)
+                if not attr.startswith("__")
+                and not callable(getattr(AccessLevel, attr))
+                and attr.isupper()
+                and isinstance(getattr(AccessLevel, attr), int)
+            ]
+        )
 
     @classmethod
-    def from_int(cls, access_level: int, locale: str = 'ru') -> str:
+    def from_int(cls, access_level: int, locale: str = "ru") -> str:
         """
         Returns the name of the access level corresponding to the given integer value.
 
@@ -95,10 +98,10 @@ class AccessLevel:
         elif access_level >= cls.ADMIN:
             return translations[cls.ADMIN]
         else:
-            raise ValueError(f'Cannot process access level: {access_level}')
+            raise ValueError(f"Cannot process access level: {access_level}")
 
     @classmethod
-    def from_string(cls, access_level: str, locale: str = 'ru') -> int:
+    def from_string(cls, access_level: str, locale: str = "ru") -> int:
         """
         Returns the integer value of the access level corresponding to the given string value.
 
@@ -116,7 +119,7 @@ class AccessLevel:
         for level, level_names in cls.__translations[locale].items():
             if access_level.lower() == level_names.lower():
                 return level
-        raise ValueError(f'Invalid access level string: {access_level}')
+        raise ValueError(f"Invalid access level string: {access_level}")
 
 
 class DatabaseKeys:
@@ -130,7 +133,7 @@ class DatabaseKeys:
         USERS: Users key
     """
 
-    USERS = 'users'
+    USERS = "users"
 
     class User:
         """
@@ -144,11 +147,11 @@ class DatabaseKeys:
             LOCAL_MODEL: OpenAI model name
         """
 
-        ACCESS_LEVEL = 'access_level'
-        CONVERSATION = 'conversation'
-        ID = 'id'
-        LANGUAGE_CODE = 'language_code'
-        CHOSEN_MODEL = 'local_model'
+        ACCESS_LEVEL = "access_level"
+        CONVERSATION = "conversation"
+        ID = "id"
+        LANGUAGE_CODE = "language_code"
+        CHOSEN_MODEL = "local_model"
 
     class Bot:
         """
@@ -160,6 +163,6 @@ class DatabaseKeys:
             RESPONSES_HISTORY: History of language model responses
         """
 
-        SUCCESSFUL_RESPONSES = 'successful_responses'
-        FAILED_RESPONSES = 'failed_responses'
-        RESPONSES_HISTORY = 'responses_history'
+        SUCCESSFUL_RESPONSES = "successful_responses"
+        FAILED_RESPONSES = "failed_responses"
+        RESPONSES_HISTORY = "responses_history"

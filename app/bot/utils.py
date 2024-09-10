@@ -243,7 +243,7 @@ class BotWrapper(Singleton):
             self.handlers.append(
                 (
                     HandlerType.CALLBACK,
-                    pattern,
+                    f"^{pattern}",
                     func,
                 )
             )
@@ -326,13 +326,15 @@ class BotWrapper(Singleton):
                         MessageHandler(filters.TEXT & ~filters.COMMAND, handler)
                     )
                 case HandlerType.CALLBACK:
+                    logger.debug(
+                        f"Registering callback handler: {handler.__name__} with pattern: {context}"
+                    )
                     self.application.add_handler(
                         CallbackQueryHandler(handler, pattern=context)
                     )
                 case HandlerType.ERROR:
                     self.application.add_error_handler(handler)
                 case HandlerType.UNKNOWN:
-                    logger.error(handler)
                     unknown_cmd_handler = handler
                 case _:
                     logger.error(
