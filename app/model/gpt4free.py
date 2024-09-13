@@ -1,36 +1,17 @@
-import asyncio
-from dataclasses import dataclass
-from typing import AsyncGenerator, Generic, TypeVar, Dict
-from abc import ABC, abstractmethod
+from typing import AsyncGenerator, TypeVar
 
-from loguru import logger
-from telegram import Update
 
+from app.model.abstraction import ChatProvider
 from app.constants import DatabaseKeys
 from app.constants.defaults import DEFAULT_MODEL
 from app.database import Database
 from app.dto import User
-from app.utils import Singleton
 from g4f.client import Client
 
 T = TypeVar("T")
 
 
-@dataclass
-class Response(Generic[T]):
-    """
-    Dataclass for responses from databases.
-
-    Attributes:
-        success: Whether the request was successful.
-        data: The data returned by the request.
-    """
-
-    success: bool
-    data: T
-
-
-class GPT4FreeProvider(Singleton, ABC):
+class GPT4FreeProvider(ChatProvider):
 
     _instance = None
 

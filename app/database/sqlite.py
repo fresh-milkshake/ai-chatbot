@@ -1,19 +1,19 @@
-import json
 from typing import Dict, Optional
 
 from loguru import logger
 from telegram import Update
 
 from app.database.utils import gather_user_data
+from app.database.abstraction import StorageProvider, Response
+from app.startup import DATABASE_CONFIG
 
-from .abstraction import StorageProvider, Response
 import sqlite3
 
 
 class SqliteDatabase(StorageProvider):
     def on_created(self):
         """Create the users table if it doesn't exist."""
-        self.db_path: str = "database.db"
+        self.db_path: str = DATABASE_CONFIG.get("path")
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
             cursor.execute(
@@ -26,7 +26,7 @@ class SqliteDatabase(StorageProvider):
             """
             )
             conn.commit()
-        logger.info("Database created successfully")
+        logger.info(f"Database created successfully at {self.db_path}")
 
     def get_data(self):
         """Retrieve all user data."""
@@ -129,7 +129,7 @@ class SqliteDatabase(StorageProvider):
             user_data = self._get_user_by_id(user_id)
         logger.info(f"Retrieved user with ID {user_id} successfully")
         return Response(success=True, data=user_data)
-    
+
     def create_user_from_update(self, update: Update) -> Response[bool]:
         """Create a user from a Telegram Update."""
         try:

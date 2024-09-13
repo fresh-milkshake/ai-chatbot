@@ -15,21 +15,21 @@ class AvailableModels:
         name="gpt-3.5-turbo",
         min_access_level=DEFAULT_MIN_ACCESS_LEVEL,
         temperature=DEFAULT_TEMPERATURE,
-        is_active=True,
+        is_active=False,
     )
 
-    GPT4 = Model(
-        name="gpt-4",
+    GPT4o = Model(
+        name="gpt-4o",
         min_access_level=AccessLevel.USER,
         temperature=DEFAULT_TEMPERATURE,
-        is_active=True,
+        is_active=False,
     )
 
     LLAMA3 = Model(
         name="llama3",
         min_access_level=AccessLevel.USER,
         temperature=DEFAULT_TEMPERATURE,
-        is_active=True,
+        is_active=False,
     )
 
     LLAMA3_1 = Model(
@@ -48,13 +48,6 @@ class AvailableModels:
 
     LLAMA2_UNCENSORED = Model(
         name="llama2-uncensored",
-        min_access_level=AccessLevel.USER,
-        temperature=DEFAULT_TEMPERATURE,
-        is_active=True,
-    )
-
-    GPT4FREE = Model(
-        name="gpt4free",
         min_access_level=AccessLevel.USER,
         temperature=DEFAULT_TEMPERATURE,
         is_active=True,

@@ -1,4 +1,4 @@
-from app.constants import DatabaseKeys, AccessLevel
+from app.constants import DatabaseKeys
 from app.constants.models import (
     AvailableModels,
     DEFAULT_TEMPERATURE,
@@ -10,7 +10,7 @@ DEFAULT_CONVERSATION = []
 DEFAULT_MODEL = AvailableModels.latest_free()
 DEFAULT_TEMPERATURE = DEFAULT_TEMPERATURE
 
-DEFAULT_NEW_USER = { 
+DEFAULT_NEW_USER = {
     DatabaseKeys.User.ACCESS_LEVEL: DEFAULT_ACCESS_LEVEL,
     DatabaseKeys.User.CONVERSATION: DEFAULT_CONVERSATION,
     DatabaseKeys.User.CHOSEN_MODEL: DEFAULT_MODEL.name,

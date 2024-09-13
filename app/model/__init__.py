@@ -26,7 +26,7 @@ from app.model.abstraction import ChatProvider
 # from app.model.openai import OpenAIModels
 # from app.model.gpt4free import Gpt4FreeProviders
 from app.model.gpt4free import GPT4FreeProvider
-from app.model.ollama import LLaMAProvider
+from app.model.ollama import OllamaProvider
 
 
 LanguageModel = GPT4FreeProvider

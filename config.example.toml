@@ -1,0 +1,40 @@
+[global]
+maintenance_mode = false
+telegram_token = { env = "TELEGRAM_TOKEN" }
+
+[models]
+# open_ai_key = { env = "OPEN_AI_KEY" }
+# ollama_inference_url = { env = "OLLAMA_INFERENCE_URL" }
+
+[database]
+type = "sqlite"
+path = "database.db"
+
+# Uncomment and configure the database you want to use
+# [database]
+# type = "mongodb"
+# host = "localhost"
+# port = 27017
+# user = { env = "MONGODB_USER" }
+# password = { env = "MONGODB_PASSWORD" }
+# db_name = "mongodb"
+
+# [database]
+# type = "postgres"
+# host = "localhost"
+# port = 5432
+# user = { env = "POSTGRES_USER" }
+# password = { env = "POSTGRES_PASSWORD" }
+# db_name = "postgres"
+
+# [database]
+# type = "mysql"
+# host = "localhost"
+# port = 3306
+# user = { env = "MYSQL_USER" }
+# password = { env = "MYSQL_PASSWORD" }
+# db_name = "mysql"
+
+[access]
+default_access_level = 0
+min_needed_access_level = 0

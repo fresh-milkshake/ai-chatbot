@@ -1,74 +1,135 @@
 from app.constants.paths import CONFIG_FILE_PATH
 from app.constants import AccessLevel
 
-import configparser
+import toml
 import dotenv
 import os
+from typing import Dict, Any
 
 from loguru import logger
 
 
-logger.debug("Loading settings...")
-dotenv.load_dotenv()
+CONFIG_TEMPLATE = """
+[global]
+maintenance_mode = false
+telegram_bot_token = { env = "TELEGRAM_BOT_TOKEN" }
 
-if not CONFIG_FILE_PATH.exists():
-    logger.debug("Creating config file...")
-    CONFIG_FILE_PATH.parent.mkdir(parents=True, exist_ok=True)
-    CONFIG_FILE_PATH.touch()
-    logger.critical(
-        "Configuration file has not found at {CONFIG_FILE_PATH}! Created empty config file for you."
-    )
-    exit()
+[models]
+# openai_api_key = { env = "OPENAI_API_KEY" }
+# ollama_api_url = { env = "OLLAMA_API_URL" }
+
+[database]
+provider = "sqlite"
+path = "sqlite.db"
+
+# Uncomment and configure the database you want to use
+# [database]
+# type = "mongodb"
+# host = "localhost"
+# port = 27017
+# username = { env = "MONGODB_USERNAME" }
+# password = { env = "MONGODB_PASSWORD" }
+# database_name = "mongodb"
+
+# [database]
+# type = "postgres"
+# host = "localhost"
+# port = 5432
+# username = { env = "POSTGRES_USERNAME" }
+# password = { env = "POSTGRES_PASSWORD" }
+# database_name = "postgres"
+
+# [database]
+# type = "mysql"
+# host = "localhost"
+# port = 3306
+# username = { env = "MYSQL_USERNAME" }
+# password = { env = "MYSQL_PASSWORD" }
+# database_name = "mysql"
+
+[access]
+default_user_level = 0
+minimum_required_level = 0
+"""
+
+ENV_TELEGRAM_BOT_TOKEN = "telegram_bot_token"
 
 
-if not CONFIG_FILE_PATH.read_text():
-    logger.critical("Config file is empty!")
-    exit()
+def load_config() -> Dict[str, Any]:
+    logger.debug("Loading configuration...")
+    dotenv.load_dotenv()
 
-__RAW_SETTINGS = configparser.ConfigParser()
-__RAW_SETTINGS.read(CONFIG_FILE_PATH)
+    if not CONFIG_FILE_PATH.exists():
+        logger.debug("Creating configuration file...")
+        CONFIG_FILE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        CONFIG_FILE_PATH.write_text(CONFIG_TEMPLATE)
+        logger.critical(
+            f"Configuration file not found at {CONFIG_FILE_PATH}! Created a template configuration file for you."
+        )
+        exit(1)
+
+    if not CONFIG_FILE_PATH.read_text().strip():
+        logger.critical("Configuration file is empty!")
+        exit(1)
+
+    return toml.load(CONFIG_FILE_PATH)
 
 
-ENVIRONMENT = {
-    "OPENAI_API_KEY": os.environ.get("OPENAI_API_KEY", ""),
-    "TELEGRAM_TOKEN": os.environ.get("TELEGRAM_TOKEN", ""),
-    "REDIS_PASSWORD": os.environ.get("REDIS_PASSWORD", ""),
-    "ADMIN_ID": os.environ.get("ADMIN_ID", ""),
-}
+def load_environment_variables(raw_config: Dict[str, Any]) -> Dict[str, Any]:
+    env_vars = {}
+    for section in raw_config.values():
+        if isinstance(section, dict):
+            for key, value in section.items():
+                if isinstance(value, dict) and "env" in value:
+                    env_var = os.getenv(value["env"])
+                    if env_var is not None:
+                        env_vars[key] = env_var
+                    else:
+                        logger.warning(
+                            f"Environment variable {value['env']} not found for {key}"
+                        )
+    logger.debug("Environment variables loaded")
+    return env_vars
 
-__RAW_SETTINGS.set("global", "telegram_token", ENVIRONMENT["TELEGRAM_TOKEN"])
-__RAW_SETTINGS.set("global", "openai_token", ENVIRONMENT["OPENAI_API_KEY"])
-__RAW_SETTINGS.set("redis", "redis_password", ENVIRONMENT["REDIS_PASSWORD"])
-__RAW_SETTINGS.set("global", "admin_id", ENVIRONMENT["ADMIN_ID"])
 
-MAINTENANCE_MODE = __RAW_SETTINGS.getboolean(
-    "global", "maintenance_mode", fallback=False
+def validate_config(config: Dict[str, Any]) -> None:
+    if not config["TELEGRAM_BOT_TOKEN"]:
+        logger.critical("Telegram bot token is not set!")
+        exit(1)
+
+    if config["DEFAULT_ACCESS_LEVEL"] > AccessLevel.ADMIN:
+        logger.critical("Default user level cannot be higher than admin access level!")
+        exit(1)
+
+    logger.debug("Telegram bot token and access levels validated")
+
+
+# Load and process configuration
+__RAW_CONFIG = load_config()
+ENVIRONMENT_VARIABLES = load_environment_variables(__RAW_CONFIG)
+
+# Global settings
+MAINTENANCE_MODE = __RAW_CONFIG.get("global", {}).get("maintenance_mode", False)
+TELEGRAM_BOT_TOKEN = ENVIRONMENT_VARIABLES.get(ENV_TELEGRAM_BOT_TOKEN)
+
+# Database settings
+DATABASE_CONFIG: Dict[str, Any] = __RAW_CONFIG.get("database", {})
+for key, value in DATABASE_CONFIG.items():
+    if isinstance(value, dict) and "env" in value:
+        DATABASE_CONFIG[key] = ENVIRONMENT_VARIABLES.get(key, value["env"])
+
+# Access settings
+DEFAULT_ACCESS_LEVEL = __RAW_CONFIG.get("access", {}).get(
+    "default_access_level", AccessLevel.GUEST
+)
+MIN_REQUIRED_ACCESS_LEVEL = __RAW_CONFIG.get("access", {}).get(
+    "min_required_access_level", AccessLevel.GUEST
+)
+ADMIN_USER_ID = __RAW_CONFIG.get("access", {}).get(
+    "admin_user_id", ENVIRONMENT_VARIABLES.get("ADMIN_USER_ID")
 )
 
-TELEGRAM_TOKEN = __RAW_SETTINGS.get("global", "telegram_token", fallback=None)
-OPENAI_TOKEN = __RAW_SETTINGS.get("global", "openai_token", fallback=None)
-ADMIN_ID = __RAW_SETTINGS.get("global", "admin_id", fallback=-1)
+# Validate configuration
+validate_config(locals())
 
-if isinstance(ADMIN_ID, str) and ADMIN_ID.isdecimal():
-    ADMIN_ID = int(ADMIN_ID)
-
-REDIS_HOST = __RAW_SETTINGS.get("redis", "redis_host", fallback="localhost")
-REDIS_PORT = __RAW_SETTINGS.getint("redis", "redis_port", fallback=6379)
-REDIS_DB_INDEX = __RAW_SETTINGS.getint("redis", "redis_db_index", fallback=0)
-REDIS_PASSWORD = __RAW_SETTINGS.get("redis", "redis_password", fallback=None)
-
-DEFAULT_ACCESS_LEVEL = __RAW_SETTINGS.getint(
-    "access", "default_access_level", fallback=0
-)
-DEFAULT_MIN_ACCESS_LEVEL = __RAW_SETTINGS.getint(
-    "access", "min_bot_access_level", fallback=AccessLevel.GUEST
-)
-
-assert TELEGRAM_TOKEN is not None and TELEGRAM_TOKEN != "", "Telegram token is not set!"
-assert OPENAI_TOKEN is not None and OPENAI_TOKEN != "", "OpenAI token is not set!"
-assert REDIS_PASSWORD is not None and REDIS_PASSWORD != "", "Redis password is not set!"
-assert (
-    DEFAULT_ACCESS_LEVEL < AccessLevel.ADMIN
-), "Default access level cannot equal or be higher than admin access level!"
-
-logger.info("Settings loaded and validated")
+logger.info("Configuration loaded and validated")

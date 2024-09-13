@@ -18,10 +18,10 @@ from app.constants.models import AvailableModels
 from app.constants.paths import TMP_FILE_NAME
 from app.database import Database
 from app.model import LanguageModel
-from app.startup import TELEGRAM_TOKEN
+from app.startup import TELEGRAM_BOT_TOKEN
 from app.utils import get_user_string
 
-bot = BotWrapper(TELEGRAM_TOKEN)
+bot = BotWrapper(TELEGRAM_BOT_TOKEN)
 
 
 @bot.handler_for("start")
@@ -177,8 +177,6 @@ async def text_handler(update: Update, _: ContextTypes.DEFAULT_TYPE):
     async for chunk in LanguageModel().stream_answer(update.message.text, user):
         full_response += chunk
 
-        logger.info(f"Full response: {full_response}")
-
         if full_response.strip() == last_response.strip() or time.time() < rate_limit:
             continue
 
@@ -193,6 +191,7 @@ async def text_handler(update: Update, _: ContextTypes.DEFAULT_TYPE):
     if not full_response:
         logger.error("Got empty response from model")
     else:
+        logger.info(f"Response:\n{full_response}")
         try:
             if full_response != last_response:
                 await placeholder_message.edit_text(full_response)

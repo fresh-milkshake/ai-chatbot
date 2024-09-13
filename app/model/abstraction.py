@@ -1,60 +1,94 @@
-from dataclasses import dataclass
-from typing import Generic, TypeVar, Dict
+from typing import AsyncGenerator
 from abc import ABC, abstractmethod
 
-from telegram import Update
 
 from app.dto import User
 from app.utils import Singleton
 
-T = TypeVar('T')
 
-
-@dataclass
-class Response(Generic[T]):
-    """
-    Dataclass for responses from databases.
-
-    Attributes:
-        success: Whether the request was successful.
-        data: The data returned by the request.
-    """
-
-    success: bool
-    data: T
+StreamedReadableAnswer = AsyncGenerator[str, None]
+ReadableAnswer = str
 
 
 class ChatProvider(Singleton, ABC):
     """
-    Singleton class for interacting with an X database.
+    Abstract base class for chat providers, implementing the Singleton pattern.
+
+    This class defines the interface for chat providers that can create and stream answers
+    to user messages. It ensures only one instance of each provider is created.
+
+    Attributes:
+        None
 
     See Also:
-        :class:`app.utils.Singleton` for singleton implementation.
+        :class:`app.utils.Singleton` for the singleton implementation details.
     """
 
+    @abstractmethod
     def on_created(self):
+        """
+        Initialize the chat provider instance.
+
+        This method is called once when the singleton instance is created.
+        Subclasses should implement this method to perform any necessary setup.
+        """
         raise NotImplementedError
 
     @abstractmethod
-    async def create_answer(self, message: str, user: dict | User) -> str:
+    async def create_answer(self, message: str, user: dict | User) -> ReadableAnswer:
         """
-        Create an answer to a message using the OpenAI API.
+        Create a complete answer to a user's message.
+
+        This method generates a full response to the given message, considering the user's
+        context and conversation history.
 
         Args:
-            message: The message to answer.
-            user: The user data dictionary from Redis.
+            message (str): The user's input message to be answered.
+            user (dict | User): The user's data, either as a dictionary or User object.
 
         Returns:
-            The answer to the message or an error message if the API call failed.
+            ReadableAnswer: A string containing the complete answer to the user's message.
+
+        Raises:
+            NotImplementedError: If not implemented by a subclass.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    async def stream_answer(
+        self, message: str, user: dict | User
+    ) -> StreamedReadableAnswer:
+        """
+        Stream an answer to a user's message.
+
+        This method generates and yields parts of the answer as they become available,
+        allowing for real-time streaming of the response.
+
+        Args:
+            message (str): The user's input message to be answered.
+            user (dict | User): The user's data, either as a dictionary or User object.
+
+        Yields:
+            str: Portions of the answer as they are generated.
+
+        Raises:
+            NotImplementedError: If not implemented by a subclass.
         """
         raise NotImplementedError
 
     @abstractmethod
     def stability_percentage(self) -> float:
         """
-        Calculate the percentage of stable operation.
+        Calculate and return the stability percentage of the chat provider.
+
+        This method should compute a measure of how stable the chat provider's
+        operations have been, based on factors such as successful responses,
+        error rates, or other relevant metrics.
 
         Returns:
-            The percentage of stable operations as a float between 0.0 and 100.0.
+            float: The stability percentage, ranging from 0.0 to 100.0.
+
+        Raises:
+            NotImplementedError: If not implemented by a subclass.
         """
         raise NotImplementedError

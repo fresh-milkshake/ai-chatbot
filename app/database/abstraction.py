@@ -6,17 +6,17 @@ from telegram import Update
 
 from app.utils import Singleton
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 @dataclass
 class Response(Generic[T]):
     """
-    Dataclass for responses from databases.
+    A generic dataclass representing responses from database operations.
 
     Attributes:
-        success: Whether the request was successful.
-        data: The data returned by the request.
+        success (bool): Indicates whether the database operation was successful.
+        data (T): The data returned by the operation. The type varies based on the operation.
     """
 
     success: bool
@@ -25,130 +25,144 @@ class Response(Generic[T]):
 
 class StorageProvider(Singleton, ABC):
     """
-    Singleton class for interacting with an X database.
+    An abstract base class defining the interface for database storage providers.
+
+    This class implements the Singleton pattern to ensure only one instance exists.
+    Subclasses should implement all abstract methods to provide specific database functionality.
 
     See Also:
-        :class:`app.utils.Singleton` for singleton implementation.
+        :class:`app.utils.Singleton` for details on the Singleton implementation.
     """
 
     def on_created(self):
+        """
+        Initialize the storage provider when it's first created.
+
+        This method should be overridden by subclasses to perform any necessary setup.
+        """
         raise NotImplementedError
 
     @abstractmethod
     def get_data(self):
+        """
+        Retrieve all data from the storage.
+
+        This method should be implemented by subclasses to fetch all stored data.
+        """
         raise NotImplementedError
 
     @abstractmethod
     def get_users(self) -> Response[Dict[str, Dict]]:
         """
-        Get all user data from the Redis cache.
+        Retrieve all user data from the storage.
 
         Returns:
-            A dictionary mapping user IDs to user data dictionaries.
+            Response[Dict[str, Dict]]: A Response object containing a dictionary mapping
+            user IDs (str) to user data dictionaries.
         """
         raise NotImplementedError
 
     @abstractmethod
     def update_users(self, users: Dict[str, dict]) -> Response[bool]:
         """
-        Update all user data in the Redis cache.
+        Update multiple users' data in the storage.
 
         Args:
-            users: A dictionary mapping user IDs to user data dictionaries.
+            users (Dict[str, dict]): A dictionary mapping user IDs to user data dictionaries.
 
         Returns:
-            A boolean indicating if the update was successful.
+            Response[bool]: A Response object indicating whether the update was successful.
         """
         raise NotImplementedError
 
     @abstractmethod
     def update_user_by_id(self, user_id: int, user_data: dict) -> Response[bool]:
         """
-        Update user data for a given user ID.
+        Update a specific user's data in the storage.
 
         Args:
-            user_id: The ID of the user to update.
-            user_data: The user data dictionary to save.
+            user_id (int): The ID of the user to update.
+            user_data (dict): The updated user data dictionary.
 
         Returns:
-            A boolean indicating if the update was successful.
+            Response[bool]: A Response object indicating whether the update was successful.
         """
         raise NotImplementedError
 
     @abstractmethod
     def update_user(self, user_data: dict) -> Response[bool]:
         """
-        Update user data for a given user.
+        Update a user's data in the storage.
 
         Args:
-            user_data: The user data dictionary to save.
+            user_data (dict): The user data dictionary to update.
 
         Returns:
-            A boolean indicating if the update was successful.
+            Response[bool]: A Response object indicating whether the update was successful.
         """
         raise NotImplementedError
 
     @abstractmethod
     def _get_user_by_id(self, user_id: int) -> Response[dict]:
         """
-        Get user data for a given user ID.
+        Internal method to retrieve a user's data by their ID.
 
         Args:
-            user_id: The ID of the user to retrieve.
+            user_id (int): The ID of the user to retrieve.
 
         Returns:
-            A dictionary containing the user data for the specified user ID.
+            Response[dict]: A Response object containing the user's data dictionary.
         """
         raise NotImplementedError
 
     @abstractmethod
     def get_user(self, user_id: int) -> Response[dict]:
         """
-        Get user data for a given user ID.
+        Retrieve a user's data by their ID.
 
         Args:
-            user_id: The ID of the user to retrieve.
+            user_id (int): The ID of the user to retrieve.
 
         Returns:
-            A dictionary containing the user data for the specified user ID.
+            Response[dict]: A Response object containing the user's data dictionary.
         """
         raise NotImplementedError
 
     @abstractmethod
     def get_user_by_update(self, update: Update) -> Response[dict]:
         """
-        Get user data for a given update object.
+        Retrieve a user's data from a Telegram Update object.
 
         Args:
-            update: An update object containing user information.
+            update (Update): A Telegram Update object containing user information.
 
         Returns:
-            A dictionary containing the user data for the specified user ID.
+            Response[dict]: A Response object containing the user's data dictionary.
         """
         raise NotImplementedError
 
     @abstractmethod
     def delete_user(self, user_id: int) -> Response[bool]:
         """
-        Delete user data for a given user ID.
+        Delete a user's data from the storage.
 
         Args:
-            user_id: The ID of the user to delete.
+            user_id (int): The ID of the user to delete.
 
         Returns:
-            A boolean indicating if the deletion was successful.
+            Response[bool]: A Response object indicating whether the deletion was successful.
         """
         raise NotImplementedError
 
     @abstractmethod
     def create_user_from_update(self, update: Update) -> Response[bool]:
         """
-        Create a new user from an update object.
+        Create a new user entry from a Telegram Update object.
 
         Args:
-            update: An update object containing user information.
+            update (Update): A Telegram Update object containing user information.
 
         Returns:
-            A boolean indicating if the user creation was successful.
+            Response[bool]: A Response object indicating whether the user creation was successful.
         """
         raise NotImplementedError

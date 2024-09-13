@@ -1,33 +1,17 @@
-from dataclasses import dataclass
-from typing import AsyncGenerator, Generic, TypeVar
-from abc import ABC
+from typing import AsyncGenerator, TypeVar
 
 
-from app.constants import DatabaseKeys
 from app.constants.defaults import DEFAULT_MODEL
+from app.constants import DatabaseKeys
 from app.database import Database
 from app.dto import User
-from app.utils import Singleton
+from app.model.abstraction import ChatProvider
 import ollama
 
 T = TypeVar("T")
 
 
-@dataclass
-class Response(Generic[T]):
-    """
-    Dataclass for responses from databases.
-
-    Attributes:
-        success: Whether the request was successful.
-        data: The data returned by the request.
-    """
-
-    success: bool
-    data: T
-
-
-class LLaMAProvider(Singleton, ABC):
+class OllamaProvider(ChatProvider):
 
     _instance = None
 
@@ -104,5 +88,3 @@ class LLaMAProvider(Singleton, ABC):
             return 100.0
 
         return (self.success_responses_count / self.total_responses_count) * 100.0
-
-
