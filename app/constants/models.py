@@ -2,7 +2,6 @@ from app.constants import AccessLevel
 from app.dto import Model
 
 DEFAULT_TEMPERATURE = 1  # 0 - 2
-DEFAULT_MIN_ACCESS_LEVEL = AccessLevel.USER
 
 
 class AvailableModels:
@@ -13,7 +12,7 @@ class AvailableModels:
 
     GPT3_5_TURBO = Model(
         name="gpt-3.5-turbo",
-        min_access_level=DEFAULT_MIN_ACCESS_LEVEL,
+        min_access_level=AccessLevel.USER,
         temperature=DEFAULT_TEMPERATURE,
         is_active=False,
     )
@@ -54,13 +53,11 @@ class AvailableModels:
     )
 
     @classmethod
-    def ALL(cls):
+    def ALL(cls) -> list[Model]:
         models = []
-
         for attr in cls.__dict__:
-            if attr.startswith("__") and attr.endswith("__"):
-                continue
-            models.append(cls.__dict__[attr])
+            if isinstance(cls.__dict__[attr], Model):
+                models.append(cls.__dict__[attr])
         return models
 
     @staticmethod
