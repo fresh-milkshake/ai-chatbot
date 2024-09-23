@@ -16,7 +16,7 @@ telegram_bot_token = { env = "TELEGRAM_BOT_TOKEN" }
 
 [models]
 # openai_api_key = { env = "OPENAI_API_KEY" }
-# ollama_api_url = { env = "OLLAMA_API_URL" }
+# ollama_api_url = { env = "OLLAMA_API_URL" } # TODO
 
 [database]
 provider = "sqlite"
@@ -50,6 +50,8 @@ path = "sqlite.db"
 [access]
 default_user_level = 0
 minimum_required_level = 0
+maintenance_access_level = 3
+admin_user_id = { env = "ADMIN_USER_ID" }
 """
 
 ENV_TELEGRAM_BOT_TOKEN = "telegram_bot_token"
@@ -124,6 +126,9 @@ DEFAULT_ACCESS_LEVEL = __RAW_CONFIG.get("access", {}).get(
 )
 MIN_REQUIRED_ACCESS_LEVEL = __RAW_CONFIG.get("access", {}).get(
     "min_required_access_level", AccessLevel.GUEST
+)
+MAINTENANCE_ACCESS_LEVEL = __RAW_CONFIG.get("access", {}).get(
+    "maintenance_access_level", AccessLevel.MODERATOR
 )
 ADMIN_USER_ID = __RAW_CONFIG.get("access", {}).get(
     "admin_user_id", ENVIRONMENT_VARIABLES.get("ADMIN_USER_ID")

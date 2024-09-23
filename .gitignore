@@ -34,3 +34,5 @@ Thumbs.db
 /utils
 /experiments/config
 database.db
+*.bat
+.gitignore

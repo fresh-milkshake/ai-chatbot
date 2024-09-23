@@ -7,6 +7,7 @@ from app.constants.defaults import DEFAULT_MODEL
 from app.database import Database
 from app.dto import User
 from g4f.client import Client
+from g4f.Provider import HuggingChat, You
 
 T = TypeVar("T")
 
@@ -67,8 +68,8 @@ class GPT4FreeProvider(ChatProvider):
 
         full_response = ""
         chat_completion = self.client.chat.completions.create(
-            # model=user.get(DatabaseKeys.User.CHOSEN_MODEL, DEFAULT_MODEL.name),
-            model="llama-3.1-405b",
+            model=user.get(DatabaseKeys.User.CHOSEN_MODEL, DEFAULT_MODEL.name),
+            # provider=HuggingChat,
             messages=messages,
             stream=True,
         )

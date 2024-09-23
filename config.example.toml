@@ -1,13 +1,14 @@
+
 [global]
 maintenance_mode = false
-telegram_token = { env = "TELEGRAM_TOKEN" }
+telegram_bot_token = { env = "TELEGRAM_BOT_TOKEN" }
 
 [models]
-# open_ai_key = { env = "OPEN_AI_KEY" }
-# ollama_inference_url = { env = "OLLAMA_INFERENCE_URL" }
+# openai_api_key = { env = "OPENAI_API_KEY" }
+# ollama_api_url = { env = "OLLAMA_API_URL" }
 
 [database]
-type = "sqlite"
+provider = "sqlite"
 path = "database.db"
 
 # Uncomment and configure the database you want to use
@@ -15,26 +16,26 @@ path = "database.db"
 # type = "mongodb"
 # host = "localhost"
 # port = 27017
-# user = { env = "MONGODB_USER" }
+# username = { env = "MONGODB_USERNAME" }
 # password = { env = "MONGODB_PASSWORD" }
-# db_name = "mongodb"
+# database_name = "mongodb"
 
 # [database]
 # type = "postgres"
 # host = "localhost"
 # port = 5432
-# user = { env = "POSTGRES_USER" }
+# username = { env = "POSTGRES_USERNAME" }
 # password = { env = "POSTGRES_PASSWORD" }
-# db_name = "postgres"
+# database_name = "postgres"
 
 # [database]
 # type = "mysql"
 # host = "localhost"
 # port = 3306
-# user = { env = "MYSQL_USER" }
+# username = { env = "MYSQL_USERNAME" }
 # password = { env = "MYSQL_PASSWORD" }
-# db_name = "mysql"
+# database_name = "mysql"
 
 [access]
-default_access_level = 0
-min_needed_access_level = 0
+default_user_level = 0
+minimum_required_level = 0

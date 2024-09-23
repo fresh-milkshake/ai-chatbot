@@ -17,9 +17,13 @@ from telegram.ext import ApplicationBuilder, ContextTypes
 from app.database import Database
 from app.utils import Singleton
 
-from app.startup import MIN_REQUIRED_ACCESS_LEVEL, MAINTENANCE_MODE
+from app.startup import (
+    MAINTENANCE_ACCESS_LEVEL,
+    MIN_REQUIRED_ACCESS_LEVEL,
+    MAINTENANCE_MODE,
+)
 from app.constants.defaults import DEFAULT_ACCESS_LEVEL
-from app.constants import AccessLevel, DatabaseKeys
+from app.constants import DatabaseKeys
 from app.constants.strings import (
     MSG_STATE_MAINTENANCE,
     MSG_ERROR_UNKNOWN,
@@ -76,7 +80,7 @@ def auth_required(min_level=MIN_REQUIRED_ACCESS_LEVEL, verbose=True, **kwargs: d
             if MAINTENANCE_MODE:
                 if (
                     user.get(DatabaseKeys.User.ACCESS_LEVEL, DEFAULT_ACCESS_LEVEL)
-                    < AccessLevel.ADMIN
+                    < MAINTENANCE_ACCESS_LEVEL
                 ):
                     await update.message.reply_text(MSG_STATE_MAINTENANCE)
                     return

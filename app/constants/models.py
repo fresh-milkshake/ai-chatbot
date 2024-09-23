@@ -31,6 +31,13 @@ class AvailableModels:
         is_active=False,
     )
 
+    LLAMA3_1_405B = Model(
+        name="llama-3.1-405b",
+        min_access_level=AccessLevel.USER,
+        temperature=DEFAULT_TEMPERATURE,
+        is_active=False,
+    )
+
     LLAMA3_1 = Model(
         name="llama3.1",
         min_access_level=AccessLevel.USER,
