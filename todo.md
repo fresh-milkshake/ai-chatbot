@@ -1,2 +1,13 @@
 TODO:
-- [ ] Add a new feature https://platform.openai.com/docs/api-reference/completions/create#completions/create-stream
+- [ ] Streaming responses support
+    - [ ] OpenAI provider
+    - [x] Ollama provider
+    - [x] G4F provider
+- [ ] Ability to change provider at runtime (Globally)
+- [x] Ability to change model at runtime (Per user)
+- [ ] Ability to settings system prompt (Per user)
+- [ ] Dashboard for monitoring
+    - [ ] Managing users, models and providers
+    - [ ] Monitoring usage statistics, uptime and system load
+    - [ ] Monitoring user's usage statistics
+    - [ ] Generating reports
